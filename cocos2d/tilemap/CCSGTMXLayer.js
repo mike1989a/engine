@@ -500,7 +500,8 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
             var z = 0 | (pos.x + pos.y * this._layerSize.width);
             var atlasIndex = this._atlasIndexForExistantZ(z);
             // remove tile from GID map
-            // this.tiles[z] = 0;
+            //不移除格子防止移除格子后再创建无内容
+            // this.tiles[z] = 0; 
 
             // remove tile from atlas position array
             this._atlasIndexArray.splice(atlasIndex, 1);
