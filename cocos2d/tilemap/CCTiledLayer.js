@@ -433,6 +433,7 @@ var TiledLayer = cc.Class({
      * tiledLayer.setTiles(tiles);
      */
     setTiles:function (tiles) {
+        this.tiles = cc.clone(tiles);
         if (this._sgNode) {
             this._sgNode.setTiles(tiles);
         }
@@ -533,7 +534,7 @@ var TiledLayer = cc.Class({
     *   distance pos周边的多少格内会被显示
     */
     setupTilesBeyondPos:function(pos, distance){
-        cc.log("setupTilesBeyondPos", pos, distance)
+        // cc.log("setupTilesBeyondPos", pos, distance)
         if (!this._sgNode) return;
         if (!this._setupedTiles) this._setupedTiles = [];
         var layerSize = this.getLayerSize()
@@ -548,7 +549,7 @@ var TiledLayer = cc.Class({
         for (var _y = _minY; _y <= _maxY; _y++) {
             for (var _x = _minX; _x <= _maxX; _x++) {
                 var z = _x + layerSize.width * _y;
-                var gid = this._sgNode.tiles[z];
+                var gid = this._sgNode.cloneTiles[z];
                 if (gid !== 0) {
                     var sign = _x+'-'+_y
                     if (this.inArray(sign, this._setupedTiles)) {//已添加的格子
@@ -556,7 +557,7 @@ var TiledLayer = cc.Class({
                     }
                     this._setupedTiles.push(sign)
                     // cc.log("_appendTileForGID", _x, _y)
-                    var _tile = this._sgNode._insertTileForGID(gid, cc.p(_x, _y));
+                    var _tile = this._sgNode.setTileGID(gid, cc.p(_x, _y));
                     // cc.log("fuckme", _tile)
                     // Optimization: update min and max GID rendered by the layer
                     this._sgNode._minGID = Math.min(gid, this._sgNode._minGID);
@@ -569,7 +570,7 @@ var TiledLayer = cc.Class({
     *   移除跟离超过pos distance的格子
     */
     removeTilesAwayPos:function(pos, distance){
-        cc.log("removeTilesAwayPos", pos, distance)
+        // cc.log("removeTilesAwayPos", pos, distance)
         if (!this._sgNode) return;
         if (!this._setupedTiles) this._setupedTiles = [];
         var length = this._setupedTiles.length

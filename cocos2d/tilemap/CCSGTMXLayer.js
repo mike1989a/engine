@@ -270,7 +270,9 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
             // layerInfo
             this.layerName = layerInfo.name;
             this._layerSize = size;
-            this.tiles = layerInfo._tiles;
+            this.tiles = {}
+            this.cloneTiles = layerInfo._tiles;
+
             this._minGID = layerInfo._minGID;
             this._maxGID = layerInfo._maxGID;
             this._opacity = layerInfo._opacity;
@@ -501,7 +503,7 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
             var atlasIndex = this._atlasIndexForExistantZ(z);
             // remove tile from GID map
             //不移除格子防止移除格子后再创建无内容
-            // this.tiles[z] = 0; 
+            this.tiles[z] = 0; 
 
             // remove tile from atlas position array
             this._atlasIndexArray.splice(atlasIndex, 1);
@@ -514,19 +516,18 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
             else {
                 if(cc._renderType === cc.game.RENDER_TYPE_WEBGL)
                     this.textureAtlas.removeQuadAtIndex(atlasIndex);
-
-                // update possible children
-                if (this._children) {
-                    var locChildren = this._children;
-                    for (var i = 0, len = locChildren.length; i < len; i++) {
-                        var child = locChildren[i];
-                        if (child) {
-                            var ai = child.atlasIndex;
-                            if (ai >= atlasIndex)
-                                child.atlasIndex = ai - 1;
+                    // update possible children
+                    if (this._children) {
+                        var locChildren = this._children;
+                        for (var i = 0, len = locChildren.length; i < len; i++) {
+                            var child = locChildren[i];
+                            if (child) {
+                                var ai = child.atlasIndex;
+                                if (ai >= atlasIndex)
+                                    child.atlasIndex = ai - 1;
+                            }
                         }
                     }
-                }
             }
         }
     },
