@@ -549,7 +549,7 @@ var TiledLayer = cc.Class({
         for (var _y = _minY; _y <= _maxY; _y++) {
             for (var _x = _minX; _x <= _maxX; _x++) {
                 var z = _x + layerSize.width * _y;
-                var gid = this._sgNode.cloneTiles[z];
+                var gid = this._sgNode.getTileBaseGIDAt(cc.p(_x, _y))
                 if (gid !== 0) {
                     var sign = _x+'-'+_y
                     if (this.inArray(sign, this._setupedTiles)) {//已添加的格子
@@ -571,6 +571,7 @@ var TiledLayer = cc.Class({
     */
     removeTilesAwayPos:function(pos, distance){
         // cc.log("removeTilesAwayPos", pos, distance)
+        // cc.log(this._sgNode)
         if (!this._sgNode) return;
         if (!this._setupedTiles) this._setupedTiles = [];
         var length = this._setupedTiles.length

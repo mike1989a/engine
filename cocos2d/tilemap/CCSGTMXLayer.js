@@ -271,7 +271,7 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
             this.layerName = layerInfo.name;
             this._layerSize = size;
             this.tiles = {}
-            this.cloneTiles = layerInfo._tiles;
+            this.baseTiles = layerInfo._tiles;
 
             this._minGID = layerInfo._minGID;
             this._maxGID = layerInfo._maxGID;
@@ -386,6 +386,21 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
         var idx = 0 | (pos.x + pos.y * this._layerSize.width);
         // Bits on the far end of the 32-bit global tile ID are used for tile flags
         var tile = this.tiles[idx];
+
+        return (tile & cc.TiledMap.TileFlag.FLIPPED_MASK) >>> 0;
+    },
+
+    //取得格子原始的gid
+    getTileBaseGIDAt:function(pos, y){
+        if(pos == null)
+            throw new Error("_ccsg.TMXLayer.getTileGIDAt(): pos should be non-null");
+        if(y !== undefined)
+            pos = cc.p(pos, y);
+        if(pos.x >= this._layerSize.width || pos.y >= this._layerSize.height || pos.x < 0 || pos.y < 0)
+            throw new Error("_ccsg.TMXLayer.getTileGIDAt(): invalid position");
+        var idx = 0 | (pos.x + pos.y * this._layerSize.width);
+        // Bits on the far end of the 32-bit global tile ID are used for tile flags
+        var tile = this.baseTiles[idx];
 
         return (tile & cc.TiledMap.TileFlag.FLIPPED_MASK) >>> 0;
     },
