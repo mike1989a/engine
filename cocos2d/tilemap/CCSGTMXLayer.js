@@ -656,6 +656,41 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
         cc.renderer.childrenOrderDirty = true;
     },
 
+    showTilesBeyond:function(pos, distance){
+        var layerSize = this.getLayerSize()
+        var _minX = pos.x - distance;
+        var _maxX = pos.x + distance;
+        var _minY = pos.y - distance;
+        var _maxY = pos.y + distance;
+        _minX = _minX < 0 ? 0 : _minX;
+        _maxX = _maxX > layerSize.width - 1 ? layerSize.width - 1 : _maxX;
+        _minY = _minY < 0 ? 0 : _minY;
+        _maxY = _maxY > layerSize.height - 1 ? layerSize.height - 1 : _maxY;
+        for (var _y = _minY; _y <= _maxY; _y++) {
+            for (var _x = _minX; _x <= _maxX; _x++) {
+                var z = _x + layerSize.width * _y;
+                var gid = this.getTileBaseGIDAt(cc.p(_x, _y))
+                if (gid !== 0) {
+                    if (this.tiles[z]) continue;
+                    this.setTileGID(gid, cc.p(_x, _y));
+                    // Optimization: update min and max GID rendered by the layer
+                    this._minGID = Math.min(gid, this._minGID);
+                    this._maxGID = Math.max(gid, this._maxGID);
+                }
+            }
+        }
+        this.removeTilesAwayPos(pos, distance)
+    },
+    removeTilesAwayPos:function(pos, distance){
+        // cc.log("removeTilesAwayPos", pos, distance)
+        for (var z in this.tiles) {
+            var _x = parseInt(z % this._layerSize.width)
+            var _y = parseInt(z / this._layerSize.width)
+             if (Math.abs(_x - pos.x) > distance || Math.abs(_y - pos.y) > distance) {
+                this.removeTileAt(cc.p(_x, _y))
+            }
+        }
+    },
     /**
      * Gets the layer name
      * @return {String}
