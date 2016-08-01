@@ -274,6 +274,12 @@ _ccsg.TMXTiledMap = _ccsg.Node.extend(/** @lends _ccsg.TMXTiledMap# */{
 	    this.height = 0;
 
         var mapInfo = new cc.TMXMapInfo(tmxString, resourcePath);
+        mapInfo._mapSize.width = 1500
+        mapInfo._mapSize.height = 1500
+        for (var i in mapInfo._layers) {
+            mapInfo._layers[i]._layerSize.width = 1500
+            mapInfo._layers[i]._layerSize.height = 1500
+        }
         var locTilesets = mapInfo.getTilesets();
         if(!locTilesets || locTilesets.length === 0)
             cc.log("_ccsg.TMXTiledMap.initWithXML(): Map not found. Please check the filename.");

@@ -688,6 +688,10 @@ var TiledMap = cc.Class({
         }
     },
 
+    setMapInfo:function(mapInfo){
+        
+    },
+
     _applyFile: function () {
         var sgNode = this._sgNode;
         var file = this._tmxFile;

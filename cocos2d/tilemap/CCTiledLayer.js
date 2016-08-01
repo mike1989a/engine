@@ -433,7 +433,6 @@ var TiledLayer = cc.Class({
      * tiledLayer.setTiles(tiles);
      */
     setTiles:function (tiles) {
-        this.tiles = cc.clone(tiles);
         if (this._sgNode) {
             this._sgNode.setTiles(tiles);
         }
@@ -525,6 +524,12 @@ var TiledLayer = cc.Class({
     setProperties:function (properties) {
         if (this._sgNode) {
             this._sgNode.setProperties(properties);
+        }
+    },
+    //设置层的配置格子
+    setBaseTiles:function(tiles){
+        if (this._sgNode) {
+            this._sgNode.setBaseTiles(tiles);
         }
     },
     /**

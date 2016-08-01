@@ -197,8 +197,23 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
      * Pointer to the map of tiles
      * @param {Array} Var
      */
-    setTiles:function (Var) {
-        this.tiles = Var;
+    setTiles:function (tiles) {
+        // this.tiles = Var;
+        // 
+        // this.tiles = tiles
+        for (var idx in tiles) {
+            var gid = tiles[idx];
+            var x = idx % this._layerSize.width, 
+                y = parseInt(idx / this._layerSize.width);
+            // var gid = this.baseTiles[idx] || 0;
+            if (gid !== 0) {
+                this.setTileGID(gid, cc.p(x, y));
+                // Optimization: update min and max GID rendered by the layer
+                this._minGID = Math.min(gid, this._minGID);
+                this._maxGID = Math.max(gid, this._maxGID);
+            }
+        }
+
     },
 
     /**
@@ -400,7 +415,7 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
             throw new Error("_ccsg.TMXLayer.getTileGIDAt(): invalid position");
         var idx = 0 | (pos.x + pos.y * this._layerSize.width);
         // Bits on the far end of the 32-bit global tile ID are used for tile flags
-        var tile = this.baseTiles[idx];
+        var tile = this.baseTiles[idx]||0;
 
         return (tile & cc.TiledMap.TileFlag.FLIPPED_MASK) >>> 0;
     },
@@ -656,6 +671,10 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
         cc.renderer.childrenOrderDirty = true;
     },
 
+    setBaseTiles:function(baseTiles){
+        this.baseTiles = baseTiles
+    },
+
     showTilesBeyond:function(pos, distance){
         var layerSize = this.getLayerSize()
         var _minX = pos.x - distance;
@@ -669,7 +688,8 @@ _ccsg.TMXLayer = cc.SpriteBatchNode.extend(/** @lends _ccsg.TMXLayer# */{
         for (var _y = _minY; _y <= _maxY; _y++) {
             for (var _x = _minX; _x <= _maxX; _x++) {
                 var z = _x + layerSize.width * _y;
-                var gid = this.getTileBaseGIDAt(cc.p(_x, _y))
+                // var gid = this.getTileBaseGIDAt(cc.p(_x, _y))
+                var gid = this.baseTiles[z] || 0;
                 if (gid !== 0) {
                     if (this.tiles[z]) continue;
                     this.setTileGID(gid, cc.p(_x, _y));

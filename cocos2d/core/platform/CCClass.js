@@ -395,16 +395,16 @@ function define (className, baseClasses, mixins, constructor, options) {
         var frame = cc._RFpeek();
         if (frame) {
             if (CC_DEV && constructor) {
-                cc.warn('cc.Class: Should not define constructor for cc.Component.');
+                cc.warn('cc.Class: Should not define constructor for cc.Component.' + className);
             }
             if (frame.beh) {
-                cc.error('Each script can have at most one Component.');
+                cc.error('Each script can have at most one Component.' + className);
                 return cls;
             }
             var uuid = frame.uuid;
             if (uuid) {
                 if (CC_EDITOR && className) {
-                    cc.warn('Should not specify class name for Component which defines in project.');
+                    cc.warn('Should not specify class name for Component which defines in project.' + className);
                 }
             }
             //else {
