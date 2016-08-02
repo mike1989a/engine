@@ -58,7 +58,7 @@ _p = null;
  * @name cc.ENGINE_VERSION
  */
 var engineVersion;
-engineVersion = '1.1.1';
+engineVersion = '1.2.0-rc.2';
 window['CocosEngine'] = cc.ENGINE_VERSION = engineVersion;
 
 /**
@@ -86,8 +86,6 @@ cc._canvas = null;
  */
 cc.container = null;
 cc._gameDiv = null;
-
-cc.isEditor = typeof Editor !== 'undefined';
 
 require('./cocos2d/core/utils');
 require('./cocos2d/core/platform/CCSys');

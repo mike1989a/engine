@@ -115,6 +115,28 @@ var Overflow = _ccsg.Label.Overflow;
  * @property {Number} SystemFont
  */
 var LabelType = _ccsg.Label.Type;
+
+
+// Returns a function, that, as long as it continues to be invoked, will not
+// be triggered. The function will be called after it stops being called for
+// N milliseconds. If `immediate` is passed, trigger the function on the
+// leading edge, instead of the trailing.
+function debounce(func, wait, immediate) {
+    var timeout;
+    return function() {
+        var context = this, args = arguments;
+        var later = function() {
+            timeout = null;
+            if (!immediate) func.apply(context, args);
+        };
+        var callNow = immediate && !timeout;
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+        if (callNow) func.apply(context, args);
+    };
+};
+
+
 /**
  * !#en The Label Component.
  * !#zh 文字标签组件
@@ -125,10 +147,28 @@ var Label = cc.Class({
     name: 'cc.Label',
     extends: cc._RendererUnderSG,
 
+    ctor: function() {
+        if(CC_EDITOR) {
+            this._userDefinedFontSize = 40;
+        }
+    },
+
     editor: CC_EDITOR && {
         menu: 'i18n:MAIN_MENU.component.renderers/Label',
         help: 'i18n:COMPONENT.help_url.label',
-        inspector: 'app://editor/page/inspector/label.html',
+        inspector: 'packages://inspector/inspectors/comps/label.js',
+    },
+
+    _updateSgNodeString: function() {
+        this._sgNode.setString(this.string);
+        this._updateNodeSize();
+    },
+
+    _updateSgNodeFontSize: function() {
+        if (this._sgNode) {
+            this._sgNode.setFontSize(this._fontSize);
+            this._updateNodeSize();
+        }
     },
 
     properties: {
@@ -144,8 +184,14 @@ var Label = cc.Class({
             tooltip: 'i18n:COMPONENT.label.string',
             notify: function () {
                 if (this._sgNode) {
-                    this._sgNode.setString(this.string);
-                    this._updateNodeSize();
+                    if (CC_EDITOR) {
+                        if(this.overflow === cc.Label.Overflow.SHRINK) {
+                            this.fontSize = this._userDefinedFontSize;
+                        }
+                        this._debouncedUpdateSgNodeString();
+                    } else {
+                        this._updateSgNodeString();
+                    }
                 }
             }
         },
@@ -184,6 +230,27 @@ var Label = cc.Class({
             animatable: false
         },
 
+        _actualFontSize: {
+            default: 40,
+        },
+
+        /**
+         * !#en The actual rendering font size in shrink mode
+         * !#zh SHRINK 模式下面文本实际渲染的字体大小
+         * @property {Number} actualFontSize
+         */
+        actualFontSize: {
+            displayName: 'Actual Font Size',
+            animatable: false,
+            readonly: true,
+            get: function () {
+                if (this._sgNode) {
+                    this._actualFontSize = this._sgNode.getFontSize();
+                }
+                return this._actualFontSize;
+            }
+        },
+
         _fontSize: 40,
         /**
          * !#en Font size of label.
@@ -192,16 +259,15 @@ var Label = cc.Class({
          */
         fontSize: {
             get: function(){
-                if (this._sgNode) {
-                    this._fontSize = this._sgNode.getFontSize();
-                }
                 return this._fontSize;
             },
             set: function(value){
                 this._fontSize = value;
-                if (this._sgNode) {
-                    this._sgNode.setFontSize(value);
-                    this._updateNodeSize();
+                if(CC_EDITOR) {
+                    this._userDefinedFontSize = value;
+                    this._debouncedUpdateFontSize();
+                } else {
+                    this._updateSgNodeFontSize();
                 }
             },
             tooltip: 'i18n:COMPONENT.label.font_size',
@@ -284,10 +350,15 @@ var Label = cc.Class({
                 return this._N$file;
             },
             set: function (value) {
+                //if delete the font, we should change isSystemFontUsed to true
+                if(!value) {
+                    this._isSystemFontUsed = true;
+                }
+
                 this._N$file = value;
                 this._bmFontOriginalSize = -1;
                 if (value && this._isSystemFontUsed)
-                    this.useSystemFont = false;
+                    this._isSystemFontUsed = false;
 
                 if (this._sgNode) {
 
@@ -323,6 +394,8 @@ var Label = cc.Class({
                 return this._isSystemFontUsed;
             },
             set: function(value){
+                if(!value && this._isSystemFontUsed) return;
+
                 this._isSystemFontUsed = !!value;
                 if (value) {
                     this.font = null;
@@ -345,14 +418,6 @@ var Label = cc.Class({
             animatable: false
         }
 
-        // TODO
-        // enableRichText: {
-        //     default: false,
-        //     notify: function () {
-        //         this._sgNode.enableRichText = this.enableRichText;
-        //     }
-        // }
-
     },
 
     statics: {
@@ -363,6 +428,10 @@ var Label = cc.Class({
 
     __preload: function () {
         this._super();
+        if (CC_EDITOR) {
+            this._debouncedUpdateSgNodeString = debounce(this._updateSgNodeString, 200);
+            this._debouncedUpdateFontSize = debounce(this._updateSgNodeFontSize, 200);
+        }
 
         var sgSizeInitialized = this._sgNode._isUseSystemFont;
         if (sgSizeInitialized) {
@@ -374,16 +443,6 @@ var Label = cc.Class({
             this._sgNode.on('load', this._updateNodeSize, this);
         }
 
-    },
-
-    onEnable: function() {
-        this._super();
-        cc.director.on(cc.Director.EVENT_BEFORE_VISIT, this._updateNodeSize, this);
-    },
-
-    onDisable: function() {
-        this._super();
-        cc.director.off(cc.Director.EVENT_BEFORE_VISIT, this._updateNodeSize, this);
     },
 
     _createSgNode: function () {
@@ -411,9 +470,6 @@ var Label = cc.Class({
             sgNode.retain();
         }
 
-        // TODO
-        // sgNode.enableRichText = this.enableRichText;
-
         sgNode.setHorizontalAlign( this.horizontalAlign );
         sgNode.setVerticalAlign( this.verticalAlign );
         sgNode.setFontSize( this._fontSize );
@@ -421,6 +477,9 @@ var Label = cc.Class({
         sgNode.enableWrapText( this._enableWrapText );
         sgNode.setLineHeight(this._lineHeight);
         sgNode.setString(this.string);
+        if (CC_EDITOR) {
+            this._userDefinedFontSize = this.fontSize;
+        }
         if (CC_EDITOR && this._useOriginalSize) {
             this.node.setContentSize(sgNode.getContentSize());
             if (this.font instanceof cc.BitmapFont) {

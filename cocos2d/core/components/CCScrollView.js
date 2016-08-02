@@ -527,7 +527,6 @@ var ScrollView = cc.Class({
      * @return {Vec2}  - A Vec2 value indicate the current scroll offset.
      */
     getScrollOffset: function() {
-        var maxScrollOffset = this.getMaxScrollOffset();
         var topDelta =  this._topBoundary -  this._getContentTopBoundary();
         var leftDeta = this._getContentLeftBoundary() - this._leftBoundary;
 
@@ -630,6 +629,16 @@ var ScrollView = cc.Class({
         } else {
             this._moveContent(moveDelta);
         }
+    },
+
+    /**
+     * !#en  Stop auto scroll immediately
+     * !#zh  停止自动滚动, 调用此 API 可以让 Scrollview 立即停止滚动
+     * @method stopAutoScroll
+     */
+    stopAutoScroll: function() {
+        this._autoScrolling = false;
+        this._autoScrollAccumulatedTime = this._autoScrollTotalTime;
     },
 
     /**
@@ -753,12 +762,53 @@ var ScrollView = cc.Class({
         return moveDelta;
     },
 
+    _moveContentToTopLeft: function (scrollViewSize) {
+        var contentSize = this.content.getContentSize();
+
+        var bottomDeta = this._getContentBottomBoundary() - this._bottomBoundary;
+        bottomDeta = -bottomDeta;
+        var moveDelta = cc.p(0, 0);
+        var totalScrollDelta = 0;
+
+        var leftDeta = this._getContentLeftBoundary() - this._leftBoundary;
+        leftDeta = -leftDeta;
+
+        if (contentSize.height < scrollViewSize.height) {
+            totalScrollDelta = contentSize.height - scrollViewSize.height;
+            moveDelta.y = bottomDeta - totalScrollDelta;
+
+            if (this.verticalScrollBar) {
+                this.verticalScrollBar.hide();
+            }
+        } else {
+            if (this.verticalScrollBar) {
+                this.verticalScrollBar.show();
+            }
+        }
+
+        if (contentSize.width < scrollViewSize.width) {
+            totalScrollDelta = contentSize.width - scrollViewSize.width;
+            moveDelta.x = leftDeta;
+
+            if (this.horizontalScrollBar) {
+                this.horizontalScrollBar.hide();
+            }
+
+        } else {
+            if (this.horizontalScrollBar) {
+                this.horizontalScrollBar.show();
+            }
+        }
+
+        this._moveContent(moveDelta);
+    },
+
     _calculateBoundary: function() {
         if (this.content) {
             //refresh content size
             var layout = this.content.getComponent(cc.Layout);
-            if(layout) {
-                layout.lateUpdate();
+            if(layout && layout.enabledInHierarchy) {
+                layout._updateLayout();
             }
             var scrollViewSize = this.node.getContentSize();
 
@@ -769,6 +819,10 @@ var ScrollView = cc.Class({
             var topRightPosition = this._convertToContentParentSpace(cc.p(scrollViewSize.width, scrollViewSize.height));
             this._rightBoundary = topRightPosition.x;
             this._topBoundary = topRightPosition.y;
+
+            if(!CC_EDITOR) {
+                this._moveContentToTopLeft(scrollViewSize);
+            }
         }
     },
 
@@ -792,13 +846,20 @@ var ScrollView = cc.Class({
         if (this.content) {
             this._handleMoveLogic(touch);
         }
-        var deltaMove = touch.getDelta();
+        var deltaMove = cc.pSub(touch.getLocation(), touch.getStartLocation());
         //FIXME: touch move delta should be calculated by DPI.
         if (cc.pLength(deltaMove) > 7) {
             this._touchMoved = true;
+            if (event.target !== this.node) {
+                // Simulate touch cancel for target node
+                var cancelEvent = new cc.Event.EventTouch(event.getTouches(), event.bubbles);
+                cancelEvent.type = cc.Node.EventType.TOUCH_CANCEL;
+                cancelEvent.touch = event.touch;
+                cancelEvent.simulate = true;
+                event.target.dispatchEvent(cancelEvent);
+            }
+            event.stopPropagation();
         }
-        // TODO: detect move distance, if distance greater than a seuil, then stop propagation.
-        event.stopPropagation();
     },
 
     _onTouchEnded: function(event) {
@@ -811,9 +872,12 @@ var ScrollView = cc.Class({
         }
     },
     _onTouchCancelled: function(event) {
-        var touch = event.touch;
-        if(this.content){
-            this._handleReleaseLogic(touch);
+        // Filte touch cancel event send from self
+        if (!event.simulate) {
+            var touch = event.touch;
+            if(this.content){
+                this._handleReleaseLogic(touch);
+            }
         }
     },
 
@@ -887,7 +951,6 @@ var ScrollView = cc.Class({
 
     _handlePressLogic: function() {
         this._autoScrolling = false;
-        this._calculateBoundary();
 
         this._touchMovePreviousTimestamp = getTimeInMilliseconds();
         this._touchMoveDisplacements = [];
@@ -1042,7 +1105,6 @@ var ScrollView = cc.Class({
     _startAttenuatingAutoScroll: function(deltaMove, initialVelocity) {
         var time = this._calculateAutoScrollTimeByInitalSpeed(cc.pLength(initialVelocity));
 
-        var originalMoveLength = cc.pLength(deltaMove);
 
         var targetDelta = cc.pNormalize(deltaMove);
         var contentSize = this.content.getContentSize();
@@ -1056,10 +1118,23 @@ var ScrollView = cc.Class({
 
         targetDelta = cc.p(targetDelta.x * totalMoveWidth * (1 - this.brake) * attenuatedFactorX, targetDelta.y * totalMoveHeight * attenuatedFactorY * (1 - this.brake));
 
-        targetDelta = cc.pAdd(deltaMove, targetDelta);
+        var originalMoveLength = cc.pLength(deltaMove);
         var factor = cc.pLength(targetDelta) / originalMoveLength;
+        targetDelta = cc.pAdd(targetDelta, deltaMove);
 
-        time = time * factor;
+        if(this.brake > 0 && factor > 7) {
+            factor = Math.sqrt(factor);
+            targetDelta = cc.pAdd(cc.pMult(deltaMove, factor), deltaMove);
+        }
+
+        if(this.brake > 0 && factor > 3) {
+            factor = 3;
+            time = time * factor;
+        }
+
+        if(this.brake === 0 && factor > 1) {
+            time = time * factor;
+        }
 
         this._startAutoScroll(targetDelta, time, true);
     },
@@ -1108,7 +1183,8 @@ var ScrollView = cc.Class({
             return cc.pAdd(a, b);
         }, totalMovement);
 
-        return cc.p(totalMovement.x / totalTime, totalMovement.y / totalTime);
+        return cc.p(totalMovement.x * (1 - this.brake) / totalTime,
+                    totalMovement.y * (1 - this.brake) / totalTime);
     },
 
     _flattenVectorByDirection: function(vector) {
@@ -1225,6 +1301,9 @@ var ScrollView = cc.Class({
         if (!CC_EDITOR) {
             this._registerEvent();
             this.node.on('size-changed', this._calculateBoundary, this);
+            if(this.content) {
+                this.content.on('size-changed', this._calculateBoundary, this);
+            }
         }
     },
 
@@ -1234,13 +1313,31 @@ var ScrollView = cc.Class({
 
     onDestroy: function() {
         this.node.off('size-changed', this._calculateBoundary, this);
+        if(this.content) {
+            this.content.off('size-changed', this._calculateBoundary, this);
+        }
+    },
+
+    _hideScrollbar: function () {
+        if (this.horizontalScrollBar) {
+            this.horizontalScrollBar.hide();
+        }
+
+        if (this.verticalScrollBar) {
+            this.verticalScrollBar.hide();
+        }
+    },
+
+    onDisable: function() {
+        this._hideScrollbar();
+        this.stopAutoScroll();
     },
 
     update: function(dt) {
         if (this._autoScrolling) {
             this._processAutoScrolling(dt);
         }
-    },
+    }
 });
 
 cc.ScrollView = module.exports = ScrollView;

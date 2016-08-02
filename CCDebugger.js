@@ -35,7 +35,6 @@ cc._LogInfos = {
     },
 
     configuration: {
-        dumpInfo: "cocos2d: **** WARNING **** CC_ENABLE_PROFILERS is defined. Disable it when you finish profiling (from CCMacro.js)",
         loadConfigFile: "Expected 'data' dict, but not found. Config file: %s",
         loadConfigFile_2: "Please load the resource first : %s",
     },
@@ -334,7 +333,7 @@ cc.DebugMode = Enum({
     /**
      * !#en The debug mode none.
      * !#zh 禁止模式，禁止显示任何日志信息。
-     * @property NONE.
+     * @property NONE
      * @type {Number}
      * @static
      */

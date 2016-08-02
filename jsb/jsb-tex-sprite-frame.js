@@ -51,18 +51,22 @@ cc.textureCache.getTextureForKey = function (key) {
 cc.Class._fastDefine('cc.Texture2D', cc.Texture2D, []);
 cc.Texture2D.$super = cc.RawAsset;
 
-cc.Texture2D.prototype.isLoaded = function () {
+var prototype = cc.Texture2D.prototype;
+
+prototype.isLoaded = function () {
     return true;
 };
-cc.Texture2D.prototype.getPixelWidth = cc.Texture2D.prototype.getPixelsWide;
-cc.Texture2D.prototype.getPixelHeight = cc.Texture2D.prototype.getPixelsHigh;
+prototype.getPixelWidth = prototype.getPixelsWide;
+prototype.getPixelHeight = prototype.getPixelsHigh;
+cc.js.get(prototype, 'pixelWidth', prototype.getPixelWidth);
+cc.js.get(prototype, 'pixelHeight', prototype.getPixelHeight);
 
 // cc.SpriteFrame
 
 cc.Class._fastDefine('cc.SpriteFrame', cc.SpriteFrame, []);
 cc.SpriteFrame.$super = cc.Asset;
 
-var prototype = cc.SpriteFrame.prototype;
+prototype = cc.SpriteFrame.prototype;
 
 cc.js.mixin(prototype, cc.EventTarget.prototype);
 prototype.textureLoaded = function () {
@@ -79,21 +83,13 @@ prototype._ctor = function (filename, rect, rotated, offset, originalSize) {
     }
 };
 
-prototype._initWithTexture = prototype.initWithTexture;
-prototype.initWithTexture = function (texture, rect, rotated, offset, originalSize) {
-    this.setTexture(texture, rect, rotated, offset, originalSize);
-};
-
 prototype.setTexture = function (textureOrTextureFile, rect, rotated, offset, originalSize) {
-
     if (rect) {
         this.setRect(rect);
     }
-
     if (offset) {
         this.setOffset(offset);
     }
-
     if (originalSize) {
         this.setOriginalSize(originalSize);
     }
@@ -103,10 +99,9 @@ prototype.setTexture = function (textureOrTextureFile, rect, rotated, offset, or
     var texture = textureOrTextureFile;
     if (cc.js.isString(textureOrTextureFile)) {
         this._textureFilename = textureOrTextureFile;
-        texture = cc.textureCache.addImage(textureOrTextureFile);
+        this._loadTexture();
     }
-
-    if (texture instanceof cc.Texture2D) {
+    else if (texture instanceof cc.Texture2D) {
         this._refreshTexture(texture);
     }
     else {
@@ -115,6 +110,22 @@ prototype.setTexture = function (textureOrTextureFile, rect, rotated, offset, or
 
     return true;
 };
+
+prototype._loadTexture = function () {
+    if (this._textureFilename) {
+        var texture = cc.textureCache.addImage(this._textureFilename);
+        this._refreshTexture(texture);
+    }
+};
+
+prototype.ensureLoadTexture = function () {
+    if (!this._texture) {
+        this._loadTexture();
+    }
+};
+
+prototype._initWithTexture = prototype.initWithTexture;
+prototype.initWithTexture = prototype.setTexture;
 
 prototype._refreshTexture = function (texture) {
 
@@ -178,7 +189,9 @@ prototype._deserialize = function (data, handle) {
     // load texture via _textureFilenameSetter
     var textureUuid = data.texture;
     if (textureUuid) {
-        handle.result.push(this, '_textureFilenameSetter', textureUuid);
+        var dontLoadTexture = (handle.customEnv && handle.customEnv.deferredLoadRaw);
+        var receiver = dontLoadTexture ? '_textureFilename' : '_textureFilenameSetter';
+        handle.result.push(this, receiver, textureUuid);
     }
 };
 prototype._checkRect = function (texture) {
@@ -210,8 +223,7 @@ prototype.getTexture = function () {
 cc.js.set(prototype, '_textureFilenameSetter', function (url) {
     this._textureFilename = url;
     if (url) {
-        var texture = cc.textureCache.addImage(url);
-        this._refreshTexture(texture);
+        this._loadTexture();
     }
 });
 

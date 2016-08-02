@@ -21,6 +21,31 @@
  THE SOFTWARE.
  ****************************************************************************/
 
+/**
+ * !#en Video event type
+ * !#zh 视频事件类型
+ * @enum VideoPlayer.EventType
+ */
+/**
+ * !#en play
+ * !#zh 播放
+ * @property {Number} PLAYING
+ */
+/**
+ * !#en pause
+ * !#zh 暂停
+ * @property {Number} PAUSED
+ */
+/**
+ * !#en stop
+ * !#zh 停止
+ * @property {Number} STOPPED
+ */
+/**
+ * !#en play end
+ * !#zh 播放结束
+ * @property {Number} COMPLETED
+ */
 var EventType = _ccsg.VideoPlayer.EventType;
 
 
@@ -57,7 +82,7 @@ var VideoPlayer = cc.Class({
 
     editor: CC_EDITOR && {
         menu: 'i18n:MAIN_MENU.component.ui/VideoPlayer',
-        inspector: 'app://editor/page/inspector/videoplayer.html',
+        inspector: 'packages://inspector/inspectors/comps/videoplayer.js',
         help: 'i18n:COMPONENT.help_url.videoplayer',
     },
 
@@ -215,6 +240,9 @@ var VideoPlayer = cc.Class({
     _initSgNode: function () {
         var sgNode = this._sgNode;
         if(sgNode) {
+            if(!CC_JSB) {
+                sgNode.createDomElementIfNeeded();
+            }
             this._updateVideoSource();
 
             sgNode.seekTo(this.currentTime);

@@ -118,7 +118,7 @@ var Sprite = cc.Class({
     editor: CC_EDITOR && {
         menu: 'i18n:MAIN_MENU.component.renderers/Sprite',
         help: 'i18n:COMPONENT.help_url.sprite',
-        inspector: 'app://editor/page/inspector/sprite.html',
+        inspector: 'packages://inspector/inspectors/comps/sprite.js',
     },
 
     ctor: function() {
@@ -393,19 +393,6 @@ var Sprite = cc.Class({
     },
 
     /**
-     * !#en Query the sprite's original size.
-     * !#zh 获取精灵原始大小
-     * @method getOriginalSize
-     * @return {Size} Sprite size.
-     * @example
-     * var originalSize = sprite.getOriginalSize();
-     * cc.log("Original Size:" + originalSize);
-     */
-    getOriginalSize: function () {
-        return this._sgNode.getOriginalSize();
-    },
-
-    /**
      * !#en Change the left sprite's cap inset.
      * !#zh 设置精灵左边框-用于九宫格。
      * @method setInsetLeft
@@ -576,12 +563,14 @@ var Sprite = cc.Class({
             oldFrame.off('load', this._onSpriteFrameLoaded, this);
         }
 
-        if (this._spriteFrame) {
-            if (this._spriteFrame.textureLoaded()) {
+        var spriteFrame = this._spriteFrame;
+        if (spriteFrame) {
+            if (spriteFrame.textureLoaded()) {
                 this._onSpriteFrameLoaded(null);
             }
             else {
-                this._spriteFrame.once('load', this._onSpriteFrameLoaded, this);
+                spriteFrame.once('load', this._onSpriteFrameLoaded, this);
+                spriteFrame.ensureLoadTexture();
             }
         }
         else {
@@ -590,7 +579,7 @@ var Sprite = cc.Class({
 
         if (CC_EDITOR) {
             // Set atlas
-            this._applyAtlas(this._spriteFrame);
+            this._applyAtlas(spriteFrame);
         }
     },
 

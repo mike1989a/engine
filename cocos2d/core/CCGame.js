@@ -39,7 +39,7 @@ var game = /** @lends cc.game# */{
     /**
      * Event triggered when game hide to background.
      * Please note that this event is not 100% guaranteed to be fired.
-     * @constant
+     * @property
      * @type {String}
      * @example
      * cc.game.on(cc.game.EVENT_HIDE, function () {
@@ -52,21 +52,21 @@ var game = /** @lends cc.game# */{
     /**
      * Event triggered when game back to foreground
      * Please note that this event is not 100% guaranteed to be fired.
-     * @constant
+     * @property
      * @type {String}
      */
     EVENT_SHOW: "game_on_show",
 
     /**
      * Event triggered after game inited, at this point all engine objects and game scripts are loaded
-     * @constant
+     * @property
      * @type {String}
      */
     EVENT_GAME_INITED: "game_inited",
 
     /**
      * Event triggered after renderer inited, at this point you will be able to use the render context
-     * @constant
+     * @property
      * @type {String}
      */
     EVENT_RENDERER_INITED: "renderer_inited",
@@ -80,7 +80,7 @@ var game = /** @lends cc.game# */{
 
     /**
      * Key of config
-     * @constant
+     * @property
      * @type {Object}
      */
     CONFIG_KEY: {
@@ -291,6 +291,13 @@ var game = /** @lends cc.game# */{
         cc.audioEngine && cc.audioEngine.end();
 
         game.onStart();
+    },
+
+    /**
+     * End game, it will close the game window
+     */
+    end: function () {
+        close();
     },
 
 //  @Game loading
@@ -661,7 +668,6 @@ var game = /** @lends cc.game# */{
             this._renderContext = cc._renderContext = cc.webglContext
              = cc.create3DContext(localCanvas, {
                 'stencil': true,
-                'preserveDrawingBuffer': true,
                 'antialias': !cc.sys.isMobile,
                 'alpha': true
             });
@@ -670,10 +676,15 @@ var game = /** @lends cc.game# */{
         if (this._renderContext) {
             cc.renderer = cc.rendererWebGL;
             win.gl = this._renderContext; // global variable declared in CCMacro.js
+            cc.renderer.init();
             cc.shaderCache._init();
             cc._drawingUtil = new cc.DrawingPrimitiveWebGL(this._renderContext);
             cc.textureCache._initializingRenderer();
+            cc.glExt = {};
+            cc.glExt.instanced_arrays = win.gl.getExtension("ANGLE_instanced_arrays");
+            cc.glExt.element_uint = win.gl.getExtension("OES_element_index_uint");
         } else {
+            cc._renderType = game.RENDER_TYPE_CANVAS;
             cc.renderer = cc.rendererCanvas;
             this._renderContext = cc._renderContext = new cc.CanvasContextWrapper(localCanvas.getContext("2d"));
             cc._drawingUtil = cc.DrawingPrimitiveCanvas ? new cc.DrawingPrimitiveCanvas(this._renderContext) : null;

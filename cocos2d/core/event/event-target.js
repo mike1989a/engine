@@ -56,7 +56,15 @@ var _doDispatchEvent = function (owner, event) {
     // Event.AT_TARGET
     // checks if destroyed in capturing callbacks
     if (owner._isTargetActive(event.type)) {
-        _doSendEvent(owner, event);
+        // Event.AT_TARGET
+        event.eventPhase = 2;
+        event.currentTarget = owner;
+        if (owner._capturingListeners) {
+            owner._capturingListeners.invoke(event);
+        }
+        if (!event._propagationImmediateStopped && owner._bubblingListeners) {
+            owner._bubblingListeners.invoke(event);
+        }
     }
 
     if (!event._propagationStopped && event.bubbles) {
@@ -79,22 +87,6 @@ var _doDispatchEvent = function (owner, event) {
         }
     }
     cachedArray.length = 0;
-};
-
-
-var _doSendEvent = function (owner, event) {
-    // Event.AT_TARGET
-    event.eventPhase = 2;
-    event.currentTarget = owner;
-    if (owner._capturingListeners) {
-        owner._capturingListeners.invoke(event);
-        if (event._propagationImmediateStopped) {
-            return;
-        }
-    }
-    if (owner._bubblingListeners) {
-        owner._bubblingListeners.invoke(event);
-    }
 };
 
 /**
@@ -324,23 +316,29 @@ JS.mixin(EventTarget.prototype, {
      * @param {*} [detail] - whatever argument the message needs
      */
     emit: function (message, detail) {
-        if (typeof message !== 'string') {
+        if (CC_DEV && typeof message !== 'string') {
             cc.error('The message must be provided');
             return;
         }
         //don't emit event when listeners are not exists.
-        if(!this._bubblingListeners && !this._capturingListeners) {
-            return;
-        }
-        var caplisteners = this._capturingListeners ? this._capturingListeners._callbackTable[message] : null;
-        var bublisteners = this._bubblingListeners ? this._bubblingListeners._callbackTable[message] : null;
+        var caplisteners = this._capturingListeners && this._capturingListeners._callbackTable[message];
+        var bublisteners = this._bubblingListeners && this._bubblingListeners._callbackTable[message];
         if ((!caplisteners || caplisteners.length === 0) && (!bublisteners || bublisteners.length === 0)) {
             return;
         }
 
         var event = new cc.Event.EventCustom(message);
         event.detail = detail;
-        _doSendEvent(this, event);
+
+        // Event.AT_TARGET
+        event.eventPhase = 2;
+        event.currentTarget = this;
+        if (caplisteners) {
+            this._capturingListeners.invoke(event);
+        }
+        if (bublisteners && !event._propagationImmediateStopped) {
+            this._bubblingListeners.invoke(event);
+        }
     },
 
     /*
