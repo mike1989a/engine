@@ -345,7 +345,7 @@ _ccsg.TMXLayer = _ccsg.Node.extend(/** @lends _ccsg.TMXLayer# */{
      * Tile set information for the layer
      * @return {cc.TMXTilesetInfo}
      */
-    getTileset:function () {
+    getTileSet:function () {
         return this.tileset;
     },
 
@@ -353,7 +353,7 @@ _ccsg.TMXLayer = _ccsg.Node.extend(/** @lends _ccsg.TMXLayer# */{
      * Tile set information for the layer
      * @param {cc.TMXTilesetInfo} Var
      */
-    setTileset:function (Var) {
+    setTileSet:function (Var) {
         this.tileset = Var;
     },
 
@@ -484,7 +484,7 @@ _ccsg.TMXLayer = _ccsg.Node.extend(/** @lends _ccsg.TMXLayer# */{
             return tile;
         }
 
-        var z = Math.floor(pos.x) + Math.floor(pos.y) * this._layerSize.width;
+        var z = Math.floor(x) + Math.floor(y) * this._layerSize.width;
         tile = this._spriteTiles[z];
         // tile not created yet. create it
         if (!tile) {
@@ -527,7 +527,7 @@ _ccsg.TMXLayer = _ccsg.Node.extend(/** @lends _ccsg.TMXLayer# */{
             return null;
         }
 
-        var idx = Math.floor(pos.x) + Math.floor(pos.y) * this._layerSize.width;
+        var idx = Math.floor(x) + Math.floor(y) * this._layerSize.width;
         // Bits on the far end of the 32-bit global tile ID are used for tile flags
         var tile = this.tiles[idx];
 

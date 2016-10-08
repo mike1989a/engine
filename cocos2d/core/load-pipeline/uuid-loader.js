@@ -25,6 +25,7 @@
 
 var JS = require('../platform/js');
 require('../platform/deserialize');
+var LoadingItems = require('./loading-items');
 
 // temp deserialize info
 var _tdInfo = new cc.deserialize.Details();
@@ -97,10 +98,15 @@ function loadDepends (pipeline, item, asset, tdInfo, deferredLoadRawAssetsInRunt
         return callback(null, asset);
     }
 
-    pipeline.flowInDeps(depends, function (items) {
+    // cache dependencies for auto release
+    var dependKeys = item.dependKeys = [];
+
+    // Predefine content for dependencies usage
+    item.content = asset;
+    pipeline.flowInDeps(item, depends, function (errors, items) {
         var item;
-        for (var src in items) {
-            item = items[src];
+        for (var src in items.map) {
+            item = items.map[src];
             if (item.uuid && item.content) {
                 item.content._uuid = item.uuid;
             }
@@ -109,38 +115,43 @@ function loadDepends (pipeline, item, asset, tdInfo, deferredLoadRawAssetsInRunt
             var dependSrc = depends[i].uuid;
             var dependObj = objList[i];
             var dependProp = propList[i];
-            item = items[dependSrc];
+            item = items.map[dependSrc];
             if (item) {
-                if (item.complete) {
-                    var value = item.isRawAsset ? item.url : item.content;
-                    dependObj[dependProp] = value;
+                if (item.complete || item.content) {
+                    if (item.error) {
+                        cc._throw(item.error);
+                    }
+                    else {
+                        var value = item.isRawAsset ? item.url : item.content;
+                        dependObj[dependProp] = value;
+                        dependKeys.push(item.isRawAsset ? item.url : dependSrc);
+                    }
                 }
                 else {
                     // item was removed from cache, but ready in pipeline actually
                     var loadCallback = function (item) {
                         var value = item.isRawAsset ? item.url : item.content;
                         this.obj[this.prop] = value;
+                        dependKeys.push(item.isRawAsset ? item.url : item.uuid);
                     };
                     var target = {
                         obj: dependObj,
                         prop: dependProp
                     };
                     // Hack to get a better behavior
-                    var list = pipeline.getItems()._callbackTable[dependSrc];
+                    var queue = LoadingItems.getQueue(item);
+                    var list = queue._callbackTable[dependSrc];
                     if (list) {
                         list.unshift(loadCallback, target);
                     }
                     else {
-                        pipeline.getItems().add(dependSrc, loadCallback, target);
+                        queue.addListener(dependSrc, loadCallback, target);
                     }
                 }
             }
         }
         asset._uuid = uuid;
         callback(null, asset);
-        if (CC_EDITOR) {
-            cc.loader.removeItem(uuid);
-        }
     });
 }
 
@@ -159,9 +170,9 @@ function canDeferredLoad (asset, item, isScene) {
     else if (isScene) {
         if (asset instanceof cc.SceneAsset) {
             res = asset.asyncLoadAssets;
-            if (res) {
-                cc.log('deferred load raw assets for ' + item.id);
-            }
+            //if (res) {
+            //    cc.log('deferred load raw assets for ' + item.id);
+            //}
         }
         //else if (asset instanceof cc.Scene) {
         //    deferredLoadRawAssetsInRuntime = asset._asyncLoadAssets;
@@ -210,7 +221,8 @@ function loadUuid (item, callback) {
         });
     }
     catch (e) {
-        callback( new Error('Uuid Loader: Deserialize asset [' + item.id + '] failed : ' + e.stack) );
+        var err = CC_JSB ? (e + '\n' + e.stack) : e.stack;
+        callback( new Error('Uuid Loader: Deserialize asset [' + item.id + '] failed : ' + err) );
         return;
     }
 

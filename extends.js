@@ -39,6 +39,7 @@ require('./cocos2d/tilemap/CCTiledMapAsset');
 if (!(CC_EDITOR && Editor.isMainProcess)) {
     require('./cocos2d/tilemap/CCTiledMap');
     require('./cocos2d/tilemap/CCTiledLayer');
+    require('./cocos2d/tilemap/CCTiledObjectGroup');
 }
 
 if (!(CC_EDITOR && Editor.isMainProcess)) {
@@ -46,6 +47,8 @@ if (!(CC_EDITOR && Editor.isMainProcess)) {
 }
 
 require('./extensions/spine');
+
+require('./extensions/dragonbones');
 
 if (!(CC_EDITOR && Editor.isMainProcess)) {
     if (!CC_JSB) {
@@ -55,4 +58,8 @@ if (!(CC_EDITOR && Editor.isMainProcess)) {
     
     require('./extensions/ccpool/CCNodePool.js');
     require('./extensions/ccpool/CCPool.js');
+}
+
+if (!CC_EDITOR || !Editor.isMainProcess) {
+    require('./cocos2d/deprecated');
 }

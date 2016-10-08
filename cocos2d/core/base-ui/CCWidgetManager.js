@@ -91,8 +91,9 @@ function alignToParent (node, widget) {
         else {
             width = node.width * scaleX;
             if (widget.isAlignHorizontalCenter) {
-                var parentCenter = (0.5 - parentAnchor.x) * parentWidth;    // no offset
-                x = parentCenter + (anchorX - 0.5) * width;
+                var localHorizontalCenter = widget._isAbsHorizontalCenter ? widget._horizontalCenter : widget._horizontalCenter * parentWidth;
+                var parentCenter = (0.5 - parentAnchor.x) * parentWidth;
+                x = parentCenter + (anchorX - 0.5) * width + localHorizontalCenter;
             }
             else if (widget.isAlignLeft) {
                 x = localLeft + anchorX * width;
@@ -137,8 +138,9 @@ function alignToParent (node, widget) {
         else {
             height = node.height * scaleY;
             if (widget.isAlignVerticalCenter) {
-                var parentMiddle = (0.5 - parentAnchor.y) * parentHeight;    // no offset
-                y = parentMiddle + (anchorY - 0.5) * height;
+                var localVerticalCenter = widget._isAbsVerticalCenter ? widget._verticalCenter : widget._verticalCenter * parentHeight;
+                var parentMiddle = (0.5 - parentAnchor.y) * parentHeight;
+                y = parentMiddle + (anchorY - 0.5) * height + localVerticalCenter;
             }
             else if (widget.isAlignBottom) {
                 y = localBottom + anchorY * height;
@@ -156,11 +158,11 @@ function visitNode (node) {
     var widget = node._widget;
     if (widget) {
         alignToParent(node, widget);
-        if ((!CC_EDITOR || _Scene.AnimUtils.curAnimState) && widget.isAlignOnce) {
+        if ((!CC_EDITOR || animationState.animatedSinceLastFrame) && widget.isAlignOnce) {
             widget.enabled = false;
         }
         else {
-            widgetManager._nodesWithWidget.push(node);
+            activeWidgets.push(widget);
         }
     }
     var children = node._children;
@@ -172,23 +174,51 @@ function visitNode (node) {
     }
 }
 
+if (CC_EDITOR) {
+    var animationState = {
+        previewing: false,
+        time: 0,
+        animatedSinceLastFrame: false,
+    };
+}
+
 function refreshScene () {
+    // check animation editor
+    if (CC_EDITOR && window._Scene && _Scene.AnimUtils) {
+        var nowPreviewing = !!_Scene.AnimUtils.curAnimState;
+        if (nowPreviewing !== animationState.previewing) {
+            animationState.previewing = nowPreviewing;
+            if (nowPreviewing) {
+                animationState.animatedSinceLastFrame = true;
+                animationState.time = _Scene.AnimUtils.curAnimState.time;
+            }
+            else {
+                animationState.animatedSinceLastFrame = false;
+            }
+        }
+        else if (nowPreviewing && animationState.time !== _Scene.AnimUtils.curAnimState.time) {
+            animationState.animatedSinceLastFrame = true;
+            animationState.time = _Scene.AnimUtils.curAnimState.time;
+        }
+    }
+
     var scene = cc.director.getScene();
     if (scene) {
         widgetManager.isAligning = true;
         if (widgetManager._nodesOrderDirty) {
-            widgetManager._nodesWithWidget.length = 0;
+            activeWidgets.length = 0;
             visitNode(scene);
             widgetManager._nodesOrderDirty = false;
-        } else {
-            var i, node, nodes = widgetManager._nodesWithWidget, len = nodes.length;
-            if (CC_EDITOR && _Scene.AnimUtils.curAnimState) {
-                // always check isAlignOnce because animation mode maybe changed
-                for (i = len - 1; i >= 0; i--) {
-                    node = nodes[i];
-                    var widget = node._widget;
-                    if (widget.isAlignOnce) {
-                        // widget contains in _nodesWithWidget should aligned at least once
+        }
+        else {
+            var i, widget, iterator = widgetManager._activeWidgetsIterator;
+            if (CC_EDITOR && window._Scene && _Scene.AnimUtils && _Scene.AnimUtils.curAnimState) {
+                var editingNode = _Scene.AnimUtils.curRootNode;
+                for (i = activeWidgets.length - 1; i >= 0; i--) {
+                    widget = activeWidgets[i];
+                    var node = widget.node;
+                    if (widget.isAlignOnce && animationState.animatedSinceLastFrame && node.isChildOf(editingNode)) {
+                        // widget contains in activeWidgets should aligned at least once
                         widget.enabled = false;
                     }
                     else {
@@ -197,15 +227,21 @@ function refreshScene () {
                 }
             }
             else {
-                for (i = 0; i < len; i++) {
-                    node = nodes[i];
-                    alignToParent(node, node._widget);
+                // loop reversely will not help to prevent out of sync
+                // because user may remove more than one item during a step.
+                for (iterator.i = 0; iterator.i < activeWidgets.length; ++iterator.i) {
+                    widget = activeWidgets[iterator.i];
+                    alignToParent(widget.node, widget);
                 }
             }
         }
         widgetManager.isAligning = false;
     }
 
+    // check animation editor
+    if (CC_EDITOR) {
+        animationState.animatedSinceLastFrame = false;
+    }
 }
 
 var adjustWidgetToAllowMovingInEditor = CC_EDITOR && function (event) {
@@ -237,14 +273,10 @@ var adjustWidgetToAllowMovingInEditor = CC_EDITOR && function (event) {
         this.right -= (this.isAbsoluteRight ? delta.x : deltaInPercent.x);
     }
     if (this.isAlignHorizontalCenter) {
-        if (oldPos.x !== newPos.x) {
-            this.isAlignHorizontalCenter = false;
-        }
+        this.horizontalCenter += (this.isAbsoluteHorizontalCenter ? delta.x : deltaInPercent.x);
     }
     if (this.isAlignVerticalCenter) {
-        if (oldPos.y !== newPos.y) {
-            this.isAlignVerticalCenter = false;
-        }
+        this.verticalCenter += (this.isAbsoluteVerticalCenter ? delta.y : deltaInPercent.y);
     }
 };
 
@@ -280,17 +312,14 @@ var adjustWidgetToAllowResizingInEditor = CC_EDITOR && function (event) {
         this.right -= (this.isAbsoluteRight ? delta.x : deltaInPercent.x) * (1 - anchor.x);
     }
     if (this.isAlignHorizontalCenter) {
-        if (delta.x !== 0 && anchor.x !== 0.5) {
-            this.isAlignHorizontalCenter = false;
-        }
+        this.horizontalCenter -= (this.isAbsoluteHorizontalCenter ? delta.x : deltaInPercent.x);
     }
     if (this.isAlignVerticalCenter) {
-        if (delta.y !== 0 && anchor.y !== 0.5) {
-            this.isAlignVerticalCenter = false;
-        }
+        this.verticalCenter -= (this.isAbsoluteVerticalCenter ? delta.y : deltaInPercent.y);
     }
 };
 
+var activeWidgets = [];
 
 var widgetManager = cc._widgetManager = module.exports = {
     _AlignFlags: {
@@ -303,7 +332,8 @@ var widgetManager = cc._widgetManager = module.exports = {
     },
     isAligning: false,
     _nodesOrderDirty: false,
-    _nodesWithWidget: [],
+    _activeWidgetsIterator: new cc.js.array.MutableForwardIterator(activeWidgets),
+
     init: function (director) {
         director.on(cc.Director.EVENT_BEFORE_VISIT, refreshScene);
     },
@@ -317,9 +347,9 @@ var widgetManager = cc._widgetManager = module.exports = {
     },
     remove: function (widget) {
         widget.node._widget = null;
-        var index = this._nodesWithWidget.indexOf(widget.node);
+        var index = activeWidgets.indexOf(widget);
         if (index > -1) {
-            this._nodesWithWidget.splice(index, 1);
+            this._activeWidgetsIterator.removeAt(index);
         }
         if (CC_EDITOR && !cc.engine.isPlaying) {
             widget.node.off('position-changed', adjustWidgetToAllowMovingInEditor, widget);

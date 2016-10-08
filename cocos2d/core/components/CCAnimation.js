@@ -166,17 +166,16 @@ var Animation = cc.Class({
         }
     },
 
-    __preload: function () {
-        if (CC_EDITOR || !this.enabled) return;
+    onEnable: function () {
+        if (!CC_EDITOR && this.playOnLoad && this._defaultClip) {
+            this.playOnLoad = false;
 
-        if (this.playOnLoad && this._defaultClip) {
             var state = this.getAnimationState(this._defaultClip.name);
             this._animator.playState(state);
         }
-    },
-
-    onEnable: function () {
-        this.resume();
+        else {
+            this.resume();
+        }
     },
 
     onDisable: function () {
@@ -563,6 +562,7 @@ var Animation = cc.Class({
     off: function (type, callback, target, useCapture) {
         this._init();
         var listeners = this._listeners;
+        var nameToState = this._nameToState;
 
         for (var i = listeners.length - 1; i >= 0; i--) {
             var listener = listeners[i];
@@ -571,9 +571,9 @@ var Animation = cc.Class({
                 listener[2] === target &&
                 listener[3] === useCapture) {
 
-                var anims = this._animator.playingAnims;
-                for (var j = 0, jj = anims.length; j < jj; j++) {
-                    anims[j].off(type, callback, target, useCapture);
+                for (var name in nameToState) {
+                    var state = nameToState[name];
+                    state.off(type, callback, target, useCapture);
                 }
 
                 listeners.splice(i, 1);

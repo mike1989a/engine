@@ -131,6 +131,10 @@ _ccsg.Label = _ccsg.Node.extend({
     _className: "Label",
     //used for left and right margin
     _margin : 0,
+    //bold,italic, underline
+    _isBold: false,
+    _isItalic: false,
+    _isUnderline: false,
 
     //fontHandle it is a system font name, ttf file path or bmfont file path.
     ctor: function(string, fontHandle, textureUrl) {
@@ -231,6 +235,25 @@ _ccsg.Label = _ccsg.Node.extend({
         this._isWrapText = enabled;
         this._rescaleWithOriginalFontSize();
 
+        this._notifyLabelSkinDirty();
+    },
+
+    enableItalics: function (enabled) {
+        this._isItalic = enabled;
+        if(enabled) {
+            this.setSkewX(12);
+        } else {
+            this.setSkewX(0);
+        }
+    },
+
+    enableBold: function (enabled) {
+        this._isBold = enabled;
+        this._notifyLabelSkinDirty();
+    },
+
+    enableUnderline: function (enabled) {
+        this._isUnderline = enabled;
         this._notifyLabelSkinDirty();
     },
 
@@ -358,6 +381,8 @@ _ccsg.Label = _ccsg.Node.extend({
         if (!extName) {
             this._fontHandle = fontHandle;
             this._labelType = _ccsg.Label.Type.SystemFont;
+            this._blendFunc = cc.BlendFunc._alphaPremultiplied();
+            this._renderCmd._needDraw = true;
             this._notifyLabelSkinDirty();
             this.emit('load');
             return;
@@ -365,13 +390,34 @@ _ccsg.Label = _ccsg.Node.extend({
 
         if (extName === ".ttf") {
             this._labelType = _ccsg.Label.Type.TTF;
+            this._blendFunc = cc.BlendFunc._alphaPremultiplied();
+            this._renderCmd._needDraw = true;
             this._fontHandle = this._loadTTFFont(fontHandle);
         } else if (extName === ".fnt") {
             //todo add bmfont here
             this._labelType = _ccsg.Label.Type.BMFont;
+            this._blendFunc = cc.BlendFunc._alphaNonPremultiplied();
+            this._renderCmd._needDraw = false;
             this._initBMFontWithString(this._string, fontHandle, textureUrl);
         }
         this._notifyLabelSkinDirty();
+    },
+
+    cleanup: function () {
+        this._super();
+
+        //remove the created DIV and style due to loading @font-face
+        if(this._fontFaceStyle) {
+            if(document.body.contains(this._fontFaceStyle)) {
+                document.body.removeChild(this._fontFaceStyle);
+            }
+        }
+
+        if(this._preloadDiv) {
+            if(document.body.contains(this._preloadDiv)) {
+                document.body.removeChild(this._preloadDiv);
+            }
+        }
     },
 
     _loadTTFFont: function(fontHandle) {
@@ -395,6 +441,7 @@ _ccsg.Label = _ccsg.Node.extend({
                 fontStyle = document.createElement("style");
             fontStyle.type = "text/css";
             doc.body.appendChild(fontStyle);
+            this._fontFaceStyle = fontStyle;
 
             var fontStr = "";
             if (isNaN(fontFamilyName - 0))
@@ -415,10 +462,15 @@ _ccsg.Label = _ccsg.Node.extend({
             _divStyle.left = "-100px";
             _divStyle.top = "-100px";
             doc.body.appendChild(preloadDiv);
-            self.scheduleOnce(function () {
-                self._notifyLabelSkinDirty();
-                self.emit("load");
-            }, 2);
+            this._preloadDiv = preloadDiv;
+            fontStyle.onload = function() {
+                fontStyle.onload = null;
+                self.scheduleOnce(function() {
+                    self._notifyLabelSkinDirty();
+                    self.emit("load");
+                },0.1);
+            };
+
         }
 
         return fontFamilyName;
@@ -484,7 +536,8 @@ _ccsg.Label = _ccsg.Node.extend({
         if (CC_EDITOR) {
             this._updateLabel();
         } else {
-            this._renderCmd.setDirtyFlag(_ccsg.Node._dirtyFlags.textDirty);
+            this._renderCmd.setDirtyFlag(_ccsg.Node._dirtyFlags.textDirty
+                                         |_ccsg.Node._dirtyFlags.contentDirty);
         }
     },
     _createRenderCmd: function() {
@@ -575,7 +628,6 @@ cc.BMFontHelper = {
         var ret = true;
 
         this._spriteBatchNode.removeAllChildren();
-        var letterClamp = false;
         for (var ctr = 0; ctr < this._string.length; ++ctr) {
             if (this._lettersInfo[ctr]._valid) {
                 var letterDef = this._fontAtlas._letterDefinitions[this._lettersInfo[ctr]._char];
@@ -610,7 +662,6 @@ cc.BMFontHelper = {
                             this._reusedRect.width = 0;
                         } else if (this._overFlow === _ccsg.Label.Overflow.SHRINK) {
                             if (this._contentSize.width > letterDef._width) {
-                                letterClamp = true;
                                 ret = false;
                                 break;
                             } else {
@@ -642,7 +693,6 @@ cc.BMFontHelper = {
 
                     this._updateLetterSpriteScale(fontChar);
 
-                    // this._spriteBatchNode.insertQuadFromSprite(this._reusedLetter, index);
                     this._spriteBatchNode.addChild(fontChar);
 
                 }
@@ -761,7 +811,7 @@ cc.BMFontHelper = {
                     && this._maxLineWidth > 0
                     && nextTokenX > 0
                     && letterX + letterDef._width * this._bmfontScale > this._maxLineWidth
-                    && !this._isspace_unicode(character)) {
+                    && !cc.TextUtils.isUnicodeSpace(character)) {
                     this._linesWidth.push(letterRight);
                     letterRight = 0;
                     lineIndex++;
@@ -986,26 +1036,15 @@ cc.BMFontHelper = {
         }
     },
 
-    _getFirstCharLen: function(text, startIndex, textLen) {
+    _getFirstCharLen: function() {
         return 1;
-    },
-
-    _isCJK_unicode: function(ch) {
-        var __CHINESE_REG = /^[\u4E00-\u9FFF\u3400-\u4DFF]+$/;
-        var __JAPANESE_REG = /[\u3000-\u303F]|[\u3040-\u309F]|[\u30A0-\u30FF]|[\uFF00-\uFFEF]|[\u4E00-\u9FAF]|[\u2605-\u2606]|[\u2190-\u2195]|\u203B/g;
-        var __KOREAN_REG = /^[\u1100-\u11FF]|[\u3130-\u318F]|[\uA960-\uA97F]|[\uAC00-\uD7AF]|[\uD7B0-\uD7FF]+$/;
-        return __CHINESE_REG.test(ch) || __JAPANESE_REG.test(ch) || __KOREAN_REG.test(ch);
-    },
-
-    //Checking whether the character is a whitespace
-    _isspace_unicode: function(ch) {
-        ch = ch.charCodeAt(0);
-        return ((ch >= 9 && ch <= 13) || ch === 32 || ch === 133 || ch === 160 || ch === 5760 || (ch >= 8192 && ch <= 8202) || ch === 8232 || ch === 8233 || ch === 8239 || ch === 8287 || ch === 12288);
     },
 
     _getFirstWordLen: function(text, startIndex, textLen) {
         var character = text.charAt(startIndex);
-        if (this._isCJK_unicode(character) || character === "\n" || this._isspace_unicode(character)) {
+        if (cc.TextUtils.isUnicodeCJK(character)
+            || character === "\n"
+            || cc.TextUtils.isUnicodeSpace(character)) {
             return 1;
         }
 
@@ -1023,13 +1062,17 @@ cc.BMFontHelper = {
             }
             letterX = nextLetterX + letterDef._offsetX * this._bmfontScale;
 
-            if(letterX + letterDef._width * this._bmfontScale > this._maxLineWidth && !this._isspace_unicode(character) && this._maxLineWidth > 0) {
+            if(letterX + letterDef._width * this._bmfontScale > this._maxLineWidth
+               && !cc.TextUtils.isUnicodeSpace(character)
+               && this._maxLineWidth > 0) {
                 if(len >= 2) {
                     return len - 1;
                 }
             }
             nextLetterX += letterDef._xAdvance * this._bmfontScale + this._additionalKerning;
-            if (character === "\n" || this._isspace_unicode(character) || this._isCJK_unicode(character)) {
+            if (character === "\n"
+                || cc.TextUtils.isUnicodeSpace(character)
+                || cc.TextUtils.isUnicodeCJK(character)) {
                 break;
             }
             len++;
@@ -1114,7 +1157,7 @@ cc.BMFontHelper = {
         }
     },
 
-    _computeHorizontalKerningForText: function(text) {
+    _computeHorizontalKerningForText: function() {
         var stringLen = this.getStringLength();
         var locKerningDict = this._config.kerningDict;
 
@@ -1149,7 +1192,7 @@ cc.BMFontHelper = {
                     var locIsLoaded = texture.isLoaded();
                     self._textureLoaded = locIsLoaded;
                     if (!locIsLoaded) {
-                        texture.once("load", function(event) {
+                        texture.once("load", function() {
                             var self = this;
 
                             if (!self._spriteBatchNode) {

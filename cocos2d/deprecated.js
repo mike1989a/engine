@@ -1,11 +1,12 @@
-var js = cc.js;
-
-// Label
-if (cc.Label) {
-    js.obsolete(cc.Label.prototype,  'cc.Label.file', 'font', true);
-}
 
 if (CC_DEV) {
+
+    var js = cc.js;
+
+    // Label
+    if (cc.Label) {
+        js.obsolete(cc.Label.prototype,  'cc.Label.file', 'font', true);
+    }
 
     var INFO = cc._LogInfos.deprecated;
 
@@ -210,6 +211,11 @@ if (CC_DEV) {
         return cc.js.array.copy;
     });
 
+    js.get(cc, 'PI', function () {
+        cc.warn(INFO, 'cc.PI', 'Math.PI');
+        return Math.PI;
+    });
+
     /**
      * Get the Tile set information for the layer.
      * @memberof cc.TiledLayer
@@ -273,7 +279,9 @@ if (CC_DEV) {
     }
     // deprecateEnum(cc.ProgressTimer, 'cc.ProgressTimer.TYPE', 'cc.ProgressTimer.Type');
     deprecateEnum(cc.game, 'cc.game.DEBUG_MODE', 'cc.DebugMode');
-    deprecateEnum(cc, 'cc', 'cc.Texture2D.WrapMode', false);
+    if (!CC_JSB) {
+        deprecateEnum(cc, 'cc', 'cc.Texture2D.WrapMode', false);
+    }
     if (_ccsg.EditBox) {
         deprecateEnum(cc, 'cc.KEYBOARD_RETURNTYPE', '_ccsg.EditBox.KeyboardReturnType');
         deprecateEnum(cc, 'cc.EDITBOX_INPUT_MODE', '_ccsg.EditBox.InputMode');
@@ -372,7 +380,6 @@ if (CC_DEV) {
         'onEnterTransitionDidFinish',
         'onExitTransitionDidStart',
         'onExit',
-        'getNumberOfRunningActions',
         'scheduleUpdate',
         'scheduleUpdateWithPriority',
         'unscheduleUpdate',
@@ -392,6 +399,8 @@ if (CC_DEV) {
         'transform',
         'getCamera',
         'grid',
+        'getOrderOfArrival',
+        'setOrderOfArrival',
         'getGrid',
         'setGrid',
         'getShaderProgram',
@@ -406,6 +415,8 @@ if (CC_DEV) {
         'userObject',
         '_cascadeColorEnabled',
         'cascadeColor',
+        'isCascadeColorEnabled',
+        'setCascadeColorEnabled',
         'ignoreAnchor',
         'isIgnoreAnchorPointForPosition',
         'ignoreAnchorPointForPosition'
@@ -422,8 +433,6 @@ if (CC_DEV) {
         _detachChild: 'removeChild',
         getZOrder: 'getLocalZOrder',
         setZOrder: 'setLocalZOrder',
-        getOrderOfArrival: 'getSiblingIndex',
-        setOrderOfArrival: 'setSiblingIndex',
         boundingBox: 'getBoundingBox',
         removeFromParentAndCleanup: 'removeFromParent',
         removeAllChildrenWithCleanup: 'removeAllChildren',
@@ -434,7 +443,7 @@ if (CC_DEV) {
         removeAllComponents: 'removeComponent',
         getNodeToParentAffineTransform: 'getNodeToParentTransform',
     });
-    
+
     // RENDERERS
 
     function shouldNotUseNodeProp (component) {
@@ -544,33 +553,41 @@ if (CC_DEV) {
         Mode: 'EmitterMode'
     });
 
-    // _ccsg.Node
-    markAsRemoved(_ccsg.Node, [
-        '_normalizedPositionDirty',
-        '_normalizedPosition',
-        '_usingNormalizedPosition',
-        'grid',
-        'userData',
-        'userObject',
-        'getNormalizedPosition',
-        'setNormalizedPosition',
-        'getCamera',
-        'getUserData',
-        'setUserData',
-        'getUserObject',
-        'setUserObject',
-        'getComponent',
-        'addComponent',
-        'removeComponent',
-        'removeAllComponents',
-        'enumerateChildren',
-        'setCameraMask',
-        'getCameraMask'
-    ], '_ccsg.Node');
+    if (!CC_JSB) {
+        // _ccsg.Node
+        markAsRemoved(_ccsg.Node, [
+            '_normalizedPositionDirty',
+            '_normalizedPosition',
+            '_usingNormalizedPosition',
+            'grid',
+            'userData',
+            'userObject',
+            'getNormalizedPosition',
+            'setNormalizedPosition',
+            'getCamera',
+            'getUserData',
+            'setUserData',
+            'getUserObject',
+            'setUserObject',
+            'getComponent',
+            'addComponent',
+            'removeComponent',
+            'removeAllComponents',
+            'enumerateChildren',
+            'setCameraMask',
+            'getCameraMask'
+        ], '_ccsg.Node');
+    }
+
+    js.obsolete(_ccsg.Node.prototype, '_ccsg.Node.ignoreAnchorPointForPosition', 'setIgnoreAnchorPointForPosition');
 
     js.obsoletes(cc.Scale9Sprite.prototype, 'cc.Scale9Sprite', {
         setPreferredSize: 'setContentSize',
         getPreferredSize: 'getContentSize',
+    });
+
+    js.obsoletes(cc.ActionManager.prototype, 'cc.ActionManager', {
+        'numberOfRunningActionsInTarget' : 'getNumberOfRunningActionsInTarget'
     });
 
     //ui
@@ -612,4 +629,42 @@ if (CC_DEV) {
             '*etTimeScale': 'timeScale',
         });
     }
+
+    // SCENE
+
+    var ERR = '"%s" is not defined in the Scene, it is only defined in normal nodes.';
+    Object.defineProperties(cc.Scene.prototype, {
+        active: {
+            get: function () {
+                cc.error(ERR, 'active');
+                return true;
+            },
+            set: function () {
+                cc.error(ERR, 'active');
+            }
+        },
+        activeInHierarchy: {
+            get: function () {
+                cc.error(ERR, 'activeInHierarchy');
+                return true;
+            },
+        },
+        getComponent: {
+            get: function () {
+                cc.error(ERR, 'getComponent');
+                return function () {
+                    return null;
+                };
+            }
+        },
+        addComponent: {
+            get: function () {
+                cc.error(ERR, 'addComponent');
+                return function () {
+                    return null;
+                };
+            }
+        },
+    });
+
 }
