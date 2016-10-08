@@ -544,7 +544,6 @@ var TiledLayer = cc.Class({
             this._sgNode.setProperties(properties);
         }
     },
-<<<<<<< HEAD
     //设置层的配置格子
     setBaseTiles:function(tiles){
         if (this._sgNode) {
@@ -590,7 +589,6 @@ var TiledLayer = cc.Class({
             this._sgNode._insertTileForGID(gid, pos, y);
         }
     },
-=======
 
     // The method will remove self component from the node,
     // and try to remove the node from scene graph.
@@ -603,7 +601,6 @@ var TiledLayer = cc.Class({
             this.node.removeFromParent();
         }
     }
->>>>>>> cocos-creator/master
 });
 
 cc.TiledLayer = module.exports = TiledLayer;
