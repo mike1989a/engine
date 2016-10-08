@@ -557,9 +557,7 @@ var TiledLayer = cc.Class({
     *   distance pos周边的多少格内会被显示
     */
     setupTilesBeyondPos:function(pos, distance){
-        // cc.log("setupTilesBeyondPos", pos, distance)
         if (!this._sgNode) return;
-        cc.log("setupTilesBeyondPos", pos, distance)
         this._sgNode.showTilesBeyond(pos, distance);        
     },
     //取得格子的初始设置
