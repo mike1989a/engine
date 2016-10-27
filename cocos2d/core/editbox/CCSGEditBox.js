@@ -146,7 +146,7 @@ var InputFlag = cc.Enum({
     /**
      * Indicates that the text entered is confidential data that should be
      * obscured whenever possible. This implies EDIT_BOX_INPUT_FLAG_SENSITIVE.
-     * 
+     *
      * @property {Number} PASSWORD
      */
     PASSWORD: 0,
@@ -182,7 +182,13 @@ var InputFlag = cc.Enum({
      *
      * @property {Number} INITIAL_CAPS_ALL_CHARACTERS
      */
-    INITIAL_CAPS_ALL_CHARACTERS: 4
+    INITIAL_CAPS_ALL_CHARACTERS: 4,
+
+    /**
+     * Don't do anything with the input text.
+     * @property {Number} DEFAULT
+     */
+    DEFAULT: 5
 });
 
 /**
@@ -230,12 +236,13 @@ _ccsg.EditBox = _ccsg.Node.extend({
     _backgroundSprite: null,
     _delegate: null,
     _editBoxInputMode: InputMode.ANY,
-    _editBoxInputFlag: InputFlag.SENSITIVE,
+    _editBoxInputFlag: InputFlag.DEFAULT,
     _keyboardReturnType: KeyboardReturnType.DEFAULT,
     _maxLength: 50,
     _text: '',
     _textColor: null,
     _placeholderText: '',
+    _alwaysOnTop: false,
     _placeholderFontName: '',
     _placeholderFontSize: 14,
     _placeholderColor: null,
@@ -277,6 +284,41 @@ _ccsg.EditBox = _ccsg.Node.extend({
         if(!this._renderCmd._edTxt) {
             this._renderCmd.createNativeControl();
         }
+    },
+
+    setTabIndex: function(index) {
+        if(this._renderCmd._edTxt) {
+            this._renderCmd._edTxt.tabIndex = index;
+        }
+    },
+
+    getTabIndex: function() {
+        if(this._renderCmd._edTxt) {
+            return this._renderCmd._edTxt.tabIndex;
+        }
+        cc.warn('The dom control is not created!');
+        return -1;
+    },
+
+    setFocus: function() {
+        if(this._renderCmd._edTxt) {
+            this._renderCmd._edTxt.focus();
+        }
+    },
+
+    isFocused: function() {
+        if(this._renderCmd._edTxt) {
+            return document.activeElement === this._renderCmd._edTxt;
+        }
+        cc.warn('The dom control is not created!');
+        return false;
+    },
+
+    stayOnTop: function (flag) {
+        if(this._alwaysOnTop === flag) return;
+
+        this._alwaysOnTop = flag;
+        this._renderCmd.stayOnTop(this._alwaysOnTop);
     },
 
     cleanup: function () {
@@ -354,7 +396,12 @@ _ccsg.EditBox = _ccsg.Node.extend({
     },
 
     setMaxLength: function (maxLength) {
-        if (!isNaN(maxLength) && maxLength > 0) {
+        if (!isNaN(maxLength)) {
+            if(maxLength < 0) {
+                //we can't set Number.MAX_VALUE to input's maxLength property
+                //so we use a magic number here, it should works at most use cases.
+                maxLength = 65535;
+            }
             this._maxLength = maxLength;
             this._renderCmd.setMaxLength(maxLength);
         }
@@ -558,6 +605,19 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
         }
     };
 
+    proto.stayOnTop = function (flag) {
+        if(flag) {
+            this._removeLabels();
+            this._edTxt.style.display = '';
+        } else {
+            this._createLabels();
+            this._edTxt.style.display = 'none';
+            this._updateLabelString();
+        }
+    };
+
+
+
     proto._createDomInput = function () {
         this._removeDomInputControl();
         var thisPointer = this;
@@ -620,6 +680,8 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
             var editBox = thisPointer._editBox;
             this.style.fontSize = thisPointer._edFontSize + 'px';
             this.style.color = cc.colorToHex(editBox._textColor);
+            thisPointer._hiddenLabels();
+
             if(cc.view.isAutoFullScreenEnabled()) {
                 thisPointer.__fullscreen = true;
                 cc.view.enableAutoFullScreen(false);
@@ -627,6 +689,8 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
             } else {
                 thisPointer.__fullscreen = false;
             }
+            this.__autoResize = cc.view.__resizeWithBrowserSize;
+            cc.view.resizeWithBrowserSize(false);
 
             scrollWindowUp(editBox);
 
@@ -640,6 +704,9 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
             thisPointer._updateEditBoxContentStyle();
             if(thisPointer.__fullscreen) {
                 cc.view.enableAutoFullScreen(true);
+            }
+            if (this.__autoResize) {
+                cc.view.resizeWithBrowserSize(true);
             }
             window.scrollY = 0;
             if (editBox._delegate && editBox._delegate.editBoxEditingDidEnded) {
@@ -695,6 +762,7 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
 
         tmpEdTxt.addEventListener('focus', function () {
             var editBox = thisPointer._editBox;
+            thisPointer._hiddenLabels();
 
             this.style.fontSize = thisPointer._edFontSize + 'px';
             this.style.color = cc.colorToHex(editBox._textColor);
@@ -750,21 +818,34 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
 
     proto._createLabels = function () {
         var editBoxSize = this._editBox.getContentSize();
-        this._textLabel = new _ccsg.Label();
-        this._textLabel.setVisible(false);
-        this._textLabel.setAnchorPoint(cc.p(0, 1));
-        this._textLabel.setOverflow(_ccsg.Label.Overflow.CLAMP);
-        this._editBox.addChild(this._textLabel, 100);
+        if(!this._textLabel) {
+            this._textLabel = new _ccsg.Label();
+            this._textLabel.setVisible(false);
+            this._textLabel.setAnchorPoint(cc.p(0, 1));
+            this._textLabel.setOverflow(_ccsg.Label.Overflow.CLAMP);
+            this._editBox.addChild(this._textLabel, 100);
+        }
 
-        this._placeholderLabel = new _ccsg.Label();
-        this._placeholderLabel.setAnchorPoint(cc.p(0, 1));
-        this._placeholderLabel.setColor(cc.Color.GRAY);
-        this._editBox.addChild(this._placeholderLabel, 100);
+        if(!this._placeholderLabel) {
+            this._placeholderLabel = new _ccsg.Label();
+            this._placeholderLabel.setAnchorPoint(cc.p(0, 1));
+            this._placeholderLabel.setColor(cc.Color.GRAY);
+            this._editBox.addChild(this._placeholderLabel, 100);
+        }
 
         this._updateLabelPosition(editBoxSize);
     };
 
+    proto._removeLabels = function () {
+        if(!this._textLabel) return;
+
+        this._editBox.removeChild(this._textLabel);
+        this._textLabel = null;
+    };
+
     proto._updateLabelPosition = function (editBoxSize) {
+        if(!this._textLabel || !this._placeholderLabel) return;
+
         var labelContentSize = cc.size(editBoxSize.width - LEFT_PADDING, editBoxSize.height);
         this._textLabel.setContentSize(labelContentSize);
         this._placeholderLabel.setLineHeight(editBoxSize.height);
@@ -788,12 +869,19 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
     };
 
     proto.setLineHeight = function (lineHeight) {
-        this._textLabel.setLineHeight(lineHeight);
+        if(this._textLabel) {
+            this._textLabel.setLineHeight(lineHeight);
+        }
     };
 
     proto._hiddenLabels = function () {
-        this._textLabel.setVisible(false);
-        this._placeholderLabel.setVisible(false);
+        if(this._textLabel) {
+            this._textLabel.setVisible(false);
+        }
+
+        if(this._placeholderLabel) {
+            this._placeholderLabel.setVisible(false);
+        }
     };
 
     proto._updateEditBoxContentStyle = function() {
@@ -812,26 +900,35 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
     proto._updateLabelString = function() {
         this._updateInputType();
 
-        this._textLabel.setVisible(true);
-        this._textLabel.setString(this._editBox._text);
+        if(this._textLabel) {
+            this._textLabel.setVisible(true);
+            this._textLabel.setString(this._editBox._text);
+        }
+
         if (this._edTxt.type === 'password') {
             var passwordString = '';
             var len = this._editBox._text.length;
             for (var i = 0; i < len; ++i) {
                 passwordString += '\u25CF';
             }
-            this._textLabel.setString(passwordString);
+            if(this._textLabel) {
+                this._textLabel.setString(passwordString);
+            }
         } else {
             this._updateEditBoxContentStyle();
-            this._textLabel.setString(this._editBox._text);
+            if(this._textLabel) {
+                this._textLabel.setString(this._editBox._text);
+            }
         }
     };
 
     proto._showLabels = function () {
         this._hiddenLabels();
         if (this._edTxt.value === '') {
-            this._placeholderLabel.setVisible(true);
-            this._placeholderLabel.setString(this._editBox._placeholderText);
+            if(this._placeholderLabel) {
+                this._placeholderLabel.setVisible(true);
+                this._placeholderLabel.setString(this._editBox._placeholderText);
+            }
         }
         else {
             this._updateLabelString();
@@ -839,15 +936,19 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
     };
 
     proto.show = function() {
-        if (this._edTxt.style.display === 'none') {
-            this._edTxt.style.display = '';
-            this._edTxt.focus();
-            this._hiddenLabels();
+        if(!this._editBox._alwaysOnTop) {
+            if (this._edTxt.style.display === 'none') {
+                this._edTxt.style.display = '';
+                this._edTxt.focus();
+            }
         }
+        this._hiddenLabels();
     };
 
     proto.hidden = function() {
-        this._edTxt.style.display = 'none';
+        if(!this._editBox._alwaysOnTop) {
+            this._edTxt.style.display = 'none';
+        }
         this._showLabels();
     };
 
@@ -882,7 +983,9 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
         if (this._edTxt.value !== this._editBox._placeholderText) {
             this._edTxt.style.color = cc.colorToHex(color);
         }
-        this._textLabel.setColor(color);
+        if(this._textLabel) {
+            this._textLabel.setColor(color);
+        }
     };
 
     proto.setPlaceHolder = function (text) {
@@ -967,15 +1070,24 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
             this._edTxt.value = text;
 
             if (text === '') {
-                this._placeholderLabel.setString(this._editBox._placeholderText);
-                this._placeholderLabel.setColor(this._editBox._placeholderColor);
-                this._placeholderLabel.setVisible(true);
-                this._textLabel.setVisible(false);
+                if(this._placeholderLabel) {
+                    this._placeholderLabel.setString(this._editBox._placeholderText);
+                    this._placeholderLabel.setColor(this._editBox._placeholderColor);
+                    this._placeholderLabel.setVisible(true);
+                }
+
+                if(this._textLabel) {
+                    this._textLabel.setVisible(false);
+                }
             }
             else {
                 this._edTxt.style.color = cc.colorToHex(this._editBox._textColor);
-                this._textLabel.setColor(this._editBox._textColor);
-                this._placeholderLabel.setVisible(false);
+                if(this._textLabel) {
+                    this._textLabel.setColor(this._editBox._textColor);
+                }
+                if(this._placeholderLabel) {
+                    this._placeholderLabel.setVisible(false);
+                }
 
                 this._updateLabelString();
             }
@@ -989,8 +1101,10 @@ _ccsg.EditBox.KeyboardReturnType = KeyboardReturnType;
             this._edTxt.style.fontFamily = this._edFontName;
             this._edTxt.style.fontSize = this._edFontSize + 'px';
         }
-        this._textLabel.setFontSize(this._edFontSize);
-        this._textLabel.setFontFileOrFamily(this._edFontName);
+        if(this._textLabel) {
+            this._textLabel.setFontSize(this._edFontSize);
+            this._textLabel.setFontFileOrFamily(this._edFontName);
+        }
     };
 
 
