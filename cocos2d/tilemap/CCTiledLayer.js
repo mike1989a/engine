@@ -559,7 +559,7 @@ var TiledLayer = cc.Class({
     setupTilesBeyondPos:function(pos, distance){
         // cc.log("setupTilesBeyondPos", pos, distance)
         if (!this._sgNode) return;
-        cc.log("setupTilesBeyondPos", pos, distance)
+        // cc.log("setupTilesBeyondPos", pos, distance)
         this._sgNode.showTilesBeyond(pos, distance);        
     },
     //取得格子的初始设置
