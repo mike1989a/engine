@@ -25,6 +25,7 @@
  ****************************************************************************/
 
 var EventTarget = require("../cocos2d/core/event/event-target");
+cc.fontFamilyCache = {};
 
 var FontLetterDefinition = function() {
     this._u = 0;
@@ -187,6 +188,7 @@ _ccsg.Label = _ccsg.Node.extend({
 
     setHorizontalAlign: function(align) {
         if (this._hAlign === align) return;
+
         this._hAlign = align;
         this._notifyLabelSkinDirty();
     },
@@ -197,6 +199,7 @@ _ccsg.Label = _ccsg.Node.extend({
 
     setVerticalAlign: function(align) {
         if (this._vAlign === align) return;
+
         this._vAlign = align;
         this._notifyLabelSkinDirty();
     },
@@ -212,11 +215,14 @@ _ccsg.Label = _ccsg.Node.extend({
         }
 
         if (this._string === string) return;
+
         this._string = string;
         this._notifyLabelSkinDirty();
     },
 
     setMargin: function(value) {
+        if(this._margin === value) return;
+
         this._margin = value;
         this._notifyLabelSkinDirty();
     },
@@ -230,6 +236,7 @@ _ccsg.Label = _ccsg.Node.extend({
 
     enableWrapText: function(enabled) {
         if (this._isWrapText === enabled) return;
+
         //when label is in resize mode, wrap is disabled.
         if (this._overFlow === _ccsg.Label.Overflow.RESIZE_HEIGHT ||
            this._overFlow === _ccsg.Label.Overflow.NONE) {
@@ -251,11 +258,15 @@ _ccsg.Label = _ccsg.Node.extend({
     },
 
     enableBold: function (enabled) {
+        if(this._isBold === enabled) return;
+
         this._isBold = enabled;
         this._notifyLabelSkinDirty();
     },
 
     enableUnderline: function (enabled) {
+        if(this._isUnderline === enabled) return;
+
         this._isUnderline = enabled;
         this._notifyLabelSkinDirty();
     },
@@ -267,6 +278,8 @@ _ccsg.Label = _ccsg.Node.extend({
         return this._fontHandle;
     },
     setFontSize: function(fntSize) {
+        if(this._fontSize === fntSize) return;
+
         this._fontSize = fntSize;
         this._drawFontsize = fntSize;
         this._notifyLabelSkinDirty();
@@ -281,6 +294,8 @@ _ccsg.Label = _ccsg.Node.extend({
     },
 
     setOutlined: function(value) {
+        if(this._outlined === value) return;
+
         this._outlined = !!value;
         this._notifyLabelSkinDirty();
     },
@@ -290,11 +305,15 @@ _ccsg.Label = _ccsg.Node.extend({
     },
 
     setOutlineColor: function(value) {
+        if(this._outlineColor === value) return;
+
         this._outlineColor = cc.color(value);
         this._notifyLabelSkinDirty();
     },
 
     setOutlineWidth: function(value) {
+        if(this._outlineWidth === value) return;
+
         this._outlineWidth = value;
         this._notifyLabelSkinDirty();
     },
@@ -352,6 +371,7 @@ _ccsg.Label = _ccsg.Node.extend({
 
     setLineHeight: function(lineHeight) {
         if (this._lineHeight === lineHeight) return;
+
         this._lineHeight = lineHeight;
         this._notifyLabelSkinDirty();
     },
@@ -406,75 +426,15 @@ _ccsg.Label = _ccsg.Node.extend({
         this._notifyLabelSkinDirty();
     },
 
-    cleanup: function () {
-        this._super();
-
-        //remove the created DIV and style due to loading @font-face
-        if(this._fontFaceStyle) {
-            if(document.body.contains(this._fontFaceStyle)) {
-                document.body.removeChild(this._fontFaceStyle);
-            }
-        }
-
-        if(this._preloadDiv) {
-            if(document.body.contains(this._preloadDiv)) {
-                document.body.removeChild(this._preloadDiv);
-            }
-        }
-    },
-
     _loadTTFFont: function(fontHandle) {
-        var ttfIndex = fontHandle.lastIndexOf(".ttf");
-        if (ttfIndex === -1) return fontHandle;
-        var slashPos = fontHandle.lastIndexOf("/");
-        var fontFamilyName;
-        if (slashPos === -1) fontFamilyName = fontHandle.substring(0, ttfIndex) + "_LABEL";
-        else fontFamilyName = fontHandle.substring(slashPos + 1, ttfIndex) + "_LABEL";
         var self = this;
-        if (window.FontFace) {
-            var fontFace = new FontFace(fontFamilyName, "url('" + fontHandle + "')");
-            fontFace.load().then(function(loadedFace) {
-                document.fonts.add(loadedFace);
-                self._notifyLabelSkinDirty();
-                self.emit('load');
-            });
-        } else {
-            //fall back implementations
-            var doc = document,
-                fontStyle = document.createElement("style");
-            fontStyle.type = "text/css";
-            doc.body.appendChild(fontStyle);
-            this._fontFaceStyle = fontStyle;
 
-            var fontStr = "";
-            if (isNaN(fontFamilyName - 0))
-                fontStr += "@font-face { font-family:" + fontFamilyName + "; src:";
-            else
-                fontStr += "@font-face { font-family:'" + fontFamilyName + "'; src:";
-
-            fontStr += "url('" + fontHandle + "');";
-
-            fontStyle.textContent = fontStr + "}";
-
-            //<div style="font-family: PressStart;">.</div>
-            var preloadDiv = document.createElement("div");
-            var _divStyle = preloadDiv.style;
-            _divStyle.fontFamily = fontFamilyName;
-            preloadDiv.innerHTML = ".";
-            _divStyle.position = "absolute";
-            _divStyle.left = "-100px";
-            _divStyle.top = "-100px";
-            doc.body.appendChild(preloadDiv);
-            this._preloadDiv = preloadDiv;
-            fontStyle.onload = function() {
-                fontStyle.onload = null;
-                self.scheduleOnce(function() {
-                    self._notifyLabelSkinDirty();
-                    self.emit("load");
-                },0.1);
-            };
-
-        }
+        var fontFamilyName = cc.CustomFontLoader._getFontFamily(fontHandle);
+        var callback = function () {
+            self._notifyLabelSkinDirty();
+            self.emit('load');
+        };
+        cc.CustomFontLoader.loadTTF(fontHandle, callback);
 
         return fontFamilyName;
     },

@@ -38,6 +38,7 @@ function getXMLHttpRequest () {
     return window.XMLHttpRequest ? new window.XMLHttpRequest() : new ActiveXObject('MSXML2.XMLHTTP');
 }
 
+var _sharedResources = [];
 var _sharedList = [];
 
 /**
@@ -170,13 +171,17 @@ JS.mixin(CCLoader.prototype, {
             resources = resources ? [resources] : [];
         }
 
+        _sharedResources.length = resources.length;
         for (var i = 0; i < resources.length; ++i) {
             var url = resources[i].id || resources[i];
             if (typeof url !== 'string')
                 continue;
             var item = this.getItem(url);
             if (item) {
-                resources[i] = item;
+                _sharedResources[i] = item;
+            }
+            else {
+                _sharedResources[i] = resources[i];
             }
         }
 
@@ -205,7 +210,8 @@ JS.mixin(CCLoader.prototype, {
             });
         });
         LoadingItems.initQueueDeps(queue);
-        queue.append(resources);
+        queue.append(_sharedResources);
+        _sharedResources.length = 0;
     },
 
     flowInDeps: function (owner, urlList, callback) {
@@ -229,13 +235,22 @@ JS.mixin(CCLoader.prototype, {
             }
         }
 
-        var queue = LoadingItems.create(this, function (errors, items) {
+        var queue = LoadingItems.create(this, owner ? function () {
+            if (this._ownerQueue && this._ownerQueue.onProgress) {
+                this._ownerQueue._childOnProgress(item);
+            }
+        } : null, function (errors, items) {
             callback(errors, items);
             // Clear deps because it's already done
             // Each item will only flowInDeps once, so it's still safe here
             owner && (owner.deps.length = 0);
             items.destroy();
         });
+        if (owner) {
+            var ownerQueue = LoadingItems.getQueue(owner);
+            // Set the root ownerQueue, if no ownerQueue defined in ownerQueue, it's the root
+            queue._ownerQueue = ownerQueue._ownerQueue || ownerQueue;
+        }
         var accepted = queue.append(_sharedList, owner);
         _sharedList.length = 0;
         return accepted;
@@ -535,7 +550,7 @@ JS.mixin(CCLoader.prototype, {
             AutoReleaseUtils.autoRelease(this, asset);
         }
         else if (asset) {
-            var id = asset._uuid || asset;
+            var id = asset._uuid || asset.url || asset;
             var item = this.getItem(id);
             if (item) {
                 var removed = this.removeItem(id);

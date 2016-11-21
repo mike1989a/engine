@@ -522,6 +522,8 @@ else {
         iOS = true;
         osVersion = uaResult[2] || '';
         osMainVersion = parseInt(osVersion) || 0;
+    } else if (/(iPhone|iPad|iPod)/.exec(nav.platform)) {
+        iOS = true;
     }
 
     var osName = sys.OS_UNKNOWN;
@@ -709,8 +711,8 @@ else {
                 _supportWebGL = true;
             }
 
-            if (_supportWebGL && sys.os === sys.OS_IOS) {
-                // Not activating WebGL in iOS UIWebView because it may crash when entering background
+            if (_supportWebGL && sys.os === sys.OS_IOS && sys.osMainVersion === 9) {
+                // Not activating WebGL in iOS 9 UIWebView because it may crash when entering background
                 if (!window.indexedDB) {
                     _supportWebGL = false;
                 }
