@@ -94,8 +94,8 @@ var deferredInitializer = {
 // */
 function appendProp (cls, name/*, isGetter*/) {
     if (CC_DEV) {
-        //var JsVarReg = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
-        //if (!JsVarReg.test(name)) {
+        //var VAR_REG = /^[$A-Za-z_][0-9A-Za-z_$]*$/;
+        //if (!VAR_REG.test(name)) {
         //    cc.error('The property name "' + name + '" is not compliant with JavaScript naming standards');
         //    return;
         //}
@@ -104,9 +104,7 @@ function appendProp (cls, name/*, isGetter*/) {
             return;
         }
     }
-
-    var index = cls.__props__.indexOf(name);
-    if (index < 0) {
+    if (cls.__props__.indexOf(name) < 0) {
         cls.__props__.push(name);
     }
 }
@@ -280,69 +278,6 @@ function getDefault (defaultVal) {
     return defaultVal;
 }
 
-/**
- * Checks whether subclass is child of superclass or equals to superclass
- *
- * @method isChildClassOf
- * @param {Function} subclass
- * @param {Function} superclass
- * @return {Boolean}
- */
-cc.isChildClassOf = function (subclass, superclass) {
-    if (subclass && superclass) {
-        if (typeof subclass !== 'function') {
-            return false;
-        }
-        if (typeof superclass !== 'function') {
-            if (CC_DEV) {
-                cc.warn('[isChildClassOf] superclass should be function type, not', superclass);
-            }
-            return false;
-        }
-        if (subclass === superclass) {
-            return true;
-        }
-        for (;;) {
-            if (CC_JSB && subclass.$super) {
-                subclass = subclass.$super;
-            }
-            else {
-                var proto = subclass.prototype; // binded function do not have prototype
-                var dunderProto = proto && Object.getPrototypeOf(proto);
-                subclass = dunderProto && dunderProto.constructor;
-            }
-            if (!subclass) {
-                return false;
-            }
-            if (subclass === superclass) {
-                return true;
-            }
-        }
-    }
-    return false;
-};
-
-// get all super classes
-function getInheritanceChain (klass) {
-    var chain = [];
-    for (;;) {
-        if (CC_JSB && klass.$super) {
-            klass = klass.$super;
-        }
-        else {
-            var dunderProto = Object.getPrototypeOf(klass.prototype);
-            klass = dunderProto && dunderProto.constructor;
-        }
-        if (!klass) {
-            break;
-        }
-        if (klass !== Object) {
-            chain.push(klass);
-        }
-    }
-    return chain;
-}
-
 function doDefine (className, baseClass, mixins, constructor, options) {
     var fireClass = _createCtor(constructor, baseClass, mixins, className, options);
 
@@ -425,26 +360,6 @@ function define (className, baseClasses, mixins, constructor, options) {
     return doDefine(className, baseClasses, mixins, constructor, options);
 }
 
-function _checkCtor (ctor, className) {
-    if (CC_DEV) {
-        if (CCClass._isCCClass(ctor)) {
-            cc.error('ctor of "%s" can not be another CCClass', className);
-            return;
-        }
-        if (typeof ctor !== 'function') {
-            cc.error('ctor of "%s" must be function type', className);
-            return;
-        }
-        if (ctor.length > 0 && !className.startsWith('cc.')) {
-            // fireball-x/dev#138: To make a unified CCClass serialization process,
-            // we don't allow parameters for constructor when creating instances of CCClass.
-            // For advance user, construct arguments can still get from 'arguments'.
-            cc.warn('Can not instantiate CCClass "%s" with arguments.', className);
-            return;
-        }
-    }
-}
-
 function normalizeClassName (className) {
     if (CC_DEV) {
         var DefaultName = 'CCClass';
@@ -473,19 +388,16 @@ function normalizeClassName (className) {
     }
 }
 
-var NAME_IN_DOT_NOTATION_REG = /^[$A-Za-z_][0-9A-Za-z_$]*$/;
-var DEFAULT = Attr.DELIMETER + 'default';
-var NEW = 'new ';
 function getNewValueTypeCode (value) {
     var clsName = JS.getClassName(value);
     var type = value.constructor;
-    var res = NEW + clsName + '(';
+    var res = 'new ' + clsName + '(';
     for (var i = 0; i < type.__props__.length; i++) {
         var prop = type.__props__[i];
         var propVal = value[prop];
         if (typeof propVal === 'object') {
             cc.error('Can not construct %s because it contains object property.', clsName);
-            return NEW + clsName + '()';
+            return 'new ' + clsName + '()';
         }
         res += propVal;
         if (i < type.__props__.length - 1) {
@@ -495,7 +407,17 @@ function getNewValueTypeCode (value) {
     return res + ')';
 }
 
+// wrap a new scope to enalbe minify
+function cleanEval_F (code, F) {
+    // jshint evil: true
+    return eval(code);
+    // jshint evil: false
+}
+
+// simple test variable name
+var VAR_REG = /^[$A-Za-z_][0-9A-Za-z_$]*$/;
 function compileProps (actualClass) {
+    // init deferred properties
     var attrs = Attr.getClassAttrs(actualClass);
     var propList = actualClass.__props__;
     if (propList === null) {
@@ -505,15 +427,14 @@ function compileProps (actualClass) {
 
     // functions for generated code
     var F = [];
-
     var func = '(function(){\n';
 
     for (var i = 0; i < propList.length; i++) {
         var prop = propList[i];
-        var attrKey = prop + DEFAULT;
+        var attrKey = prop + Attr.DELIMETER + 'default';
         if (attrKey in attrs) {  // getter does not have default
             var statement;
-            if (NAME_IN_DOT_NOTATION_REG.test(prop)) {
+            if (VAR_REG.test(prop)) {
                 statement = 'this.' + prop + '=';
             }
             else {
@@ -559,18 +480,19 @@ function compileProps (actualClass) {
         console.log(func);
     }
 
-    // jshint evil: true
-    var instantiateProps = (function (F) {
-        // wrap a new scope to enalbe minify
-        return eval(func);
-    })(F);
-    // jshint evil: false
-
     // overwite __initProps__ to avoid compile again
-    actualClass.prototype.__initProps__ = instantiateProps;
+    actualClass.prototype.__initProps__ = cleanEval_F(func, F);
 
-    // immediate call instantiateProps, no need actualClass anymore
+    // call instantiateProps immediately, no need to pass actualClass into it anymore
     this.__initProps__();
+}
+
+// wrap a new scope to enalbe minify
+function cleanEval_fireClass (code) {
+    // jshint evil: true
+    var fireClass = eval(code);
+    // jshint evil: false
+    return fireClass;
 }
 
 function _createCtor (ctor, baseClass, mixins, className, options) {
@@ -594,10 +516,22 @@ function _createCtor (ctor, baseClass, mixins, className, options) {
             shouldAddProtoCtor = true;
         }
     }
-    var superCallBounded = options && baseClass && boundSuperCalls(baseClass, options);
+    var superCallBounded = options && baseClass && boundSuperCalls(baseClass, options, className);
 
     if (CC_DEV && ctor) {
-        _checkCtor(ctor, className);
+        // check ctor
+        if (CCClass._isCCClass(ctor)) {
+            cc.error('ctor of "%s" can not be another CCClass', className);
+        }
+        if (typeof ctor !== 'function') {
+            cc.error('ctor of "%s" must be function type', className);
+        }
+        if (ctor.length > 0 && !className.startsWith('cc.')) {
+            // fireball-x/dev#138: To make a unified CCClass serialization process,
+            // we don't allow parameters for constructor when creating instances of CCClass.
+            // For advance user, construct arguments can still get from 'arguments'.
+            cc.warn('Can not instantiate CCClass "%s" with arguments.', className);
+        }
     }
     // get base user constructors
     var ctors = [];
@@ -662,7 +596,7 @@ function _createCtor (ctor, baseClass, mixins, className, options) {
     body += '})';
 
     // jshint evil: true
-    var fireClass = eval(body);
+    var fireClass = cleanEval_fireClass(body);
     // jshint evil: false
 
     Object.defineProperty(fireClass, '__ctors__', {
@@ -677,47 +611,47 @@ function _createCtor (ctor, baseClass, mixins, className, options) {
     return fireClass;
 }
 
-var SuperCallReg = /xyz/.test(function(){xyz;}) ? /\b_super\b/ : /.*/;
-function _boundSuperCall (func, funcName, base) {
-    var superFunc = null;
-    var pd = JS.getPropertyDescriptor(base.prototype, funcName);
-    if (pd) {
-        superFunc = pd.value;
-        // ignore pd.get, assume that function defined by getter is just for warnings
-        if (typeof superFunc === 'function') {
-            var hasSuperCall = SuperCallReg.test(func);
-            if (hasSuperCall) {
-                return function () {
-                    var tmp = this._super;
-
-                    // Add a new ._super() method that is the same method but on the super-Class
-                    this._super = superFunc;
-
-                    var ret = func.apply(this, arguments);
-
-                    // The method only need to be bound temporarily, so we remove it when we're done executing
-                    this._super = tmp;
-
-                    return ret;
-                };
-            }
-        }
-    }
-    return null;
-}
-
-function boundSuperCalls (baseClass, options) {
+var SuperCallReg = /xyz/.test(function(){xyz}) ? /\b_super\b/ : /.*/;
+var SuperCallRegStrict = /xyz/.test(function(){xyz}) ? /this\._super\s*\(/ : /(NONE){99}/;
+function boundSuperCalls (baseClass, options, className) {
     var hasSuperCall = false;
     for (var funcName in options) {
-        if (BUILTIN_ENTRIES.indexOf(funcName) < 0) {
-            var func = options[funcName];
-            if (typeof func === 'function') {
-                var bounded = _boundSuperCall(func, funcName, baseClass);
-                if (bounded) {
+        if (BUILTIN_ENTRIES.indexOf(funcName) >= 0) {
+            continue;
+        }
+        var func = options[funcName];
+        if (typeof func !== 'function') {
+            continue;
+        }
+        var pd = JS.getPropertyDescriptor(baseClass.prototype, funcName);
+        if (pd) {
+            var superFunc = pd.value;
+            // ignore pd.get, assume that function defined by getter is just for warnings
+            if (typeof superFunc === 'function') {
+                if (SuperCallReg.test(func)) {
                     hasSuperCall = true;
-                    options[funcName] = bounded;
+                    // boundSuperCall
+                    options[funcName] = (function (superFunc, func) {
+                        return function () {
+                            var tmp = this._super;
+
+                            // Add a new ._super() method that is the same method but on the super-Class
+                            this._super = superFunc;
+
+                            var ret = func.apply(this, arguments);
+
+                            // The method only need to be bound temporarily, so we remove it when we're done executing
+                            this._super = tmp;
+
+                            return ret;
+                        };
+                    })(superFunc, func);
                 }
+                continue;
             }
+        }
+        if (CC_DEV && SuperCallRegStrict.test(func)) {
+            cc.warn('this._super declared in "%s.%s" but no super method defined', className, funcName);
         }
     }
     return hasSuperCall;
@@ -961,15 +895,6 @@ CCClass._isCCClass = function (constructor) {
 };
 
 //
-// @method _convertToFireClass
-// @param {Function} constructor
-// @private
-//
-//CCClass._convertToFireClass = function (constructor) {
-//    constructor.prop = _metaClass.prop;
-//};
-
-//
 // Optimized define function only for internal classes
 //
 // @method _fastDefine
@@ -994,12 +919,72 @@ CCClass.Attr = Attr;
 CCClass.attr = Attr.attr;
 
 /**
+ * Checks whether subclass is child of superclass or equals to superclass
+ *
+ * @method isChildClassOf
+ * @param {Function} subclass
+ * @param {Function} superclass
+ * @return {Boolean}
+ */
+cc.isChildClassOf = function (subclass, superclass) {
+    if (subclass && superclass) {
+        if (typeof subclass !== 'function') {
+            return false;
+        }
+        if (typeof superclass !== 'function') {
+            if (CC_DEV) {
+                cc.warn('[isChildClassOf] superclass should be function type, not', superclass);
+            }
+            return false;
+        }
+        if (subclass === superclass) {
+            return true;
+        }
+        for (;;) {
+            if (CC_JSB && subclass.$super) {
+                subclass = subclass.$super;
+            }
+            else {
+                var proto = subclass.prototype; // binded function do not have prototype
+                var dunderProto = proto && Object.getPrototypeOf(proto);
+                subclass = dunderProto && dunderProto.constructor;
+            }
+            if (!subclass) {
+                return false;
+            }
+            if (subclass === superclass) {
+                return true;
+            }
+        }
+    }
+    return false;
+};
+
+/**
  * Return all super classes
  * @method getInheritanceChain
  * @param {Function} constructor
  * @return {Function[]}
  */
-CCClass.getInheritanceChain = getInheritanceChain;
+CCClass.getInheritanceChain = function (klass) {
+    var chain = [];
+    for (;;) {
+        if (CC_JSB && klass.$super) {
+            klass = klass.$super;
+        }
+        else {
+            var dunderProto = Object.getPrototypeOf(klass.prototype);
+            klass = dunderProto && dunderProto.constructor;
+        }
+        if (!klass) {
+            break;
+        }
+        if (klass !== Object) {
+            chain.push(klass);
+        }
+    }
+    return chain;
+};
 
 var PrimitiveTypes = {
     // Specify that the input value must be integer in Inspector.
@@ -1160,7 +1145,9 @@ module.exports = {
         defaultVal = getDefault(defaultVal);
         return Array.isArray(defaultVal);
     },
-    fastDefine: CCClass._fastDefine
+    fastDefine: CCClass._fastDefine,
+    getNewValueTypeCode: getNewValueTypeCode,
+    VAR_REG: VAR_REG,
 };
 
 if (CC_EDITOR) {
