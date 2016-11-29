@@ -539,6 +539,7 @@ var Sprite = cc.Class({
     _onSpriteFrameLoaded: function (event) {
         var self = this;
         var sgNode = this._sgNode;
+        if (!sgNode) return;
         sgNode.setSpriteFrame(self._spriteFrame);
         self._applyCapInset();
         self._applySpriteSize();
