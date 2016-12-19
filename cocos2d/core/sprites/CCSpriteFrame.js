@@ -464,7 +464,9 @@ cc.SpriteFrame = cc.Class(/** @lends cc.SpriteFrame# */{
                 uuid = url._uuid;
             }
             else {
-                uuid = Editor.Utils.UuidCache.urlToUuid(url);
+                // uuid = Editor.Utils.UuidCache.urlToUuid(url);
+                uuid = Editor.assetdb.urlToUuid(url);
+
             }
         }
         var capInsets;
