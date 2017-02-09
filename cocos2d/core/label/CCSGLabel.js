@@ -876,7 +876,7 @@ cc.BMFontHelper = {
                 letterDef = this._fontAtlas.getLetterDefinitionForChar(character);
                 if (!letterDef) {
                     this._recordPlaceholderInfo(letterIndex, character);
-                    console.log("Can't find letter definition in font file for letter:" + character);
+                    // console.log("Can't find letter definition in font file for letter:" + character);
                     continue;
                 }
 
