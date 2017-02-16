@@ -132,6 +132,7 @@ cc.eventManager = {
         }
         if (node.getChildren) {
             var _children = node.getChildren();
+            if (!_children) return;//edit by yangzhu
             for(var i = 0, len = _children.length; i < len; i++)
                 this._setDirtyForNode(_children[i]);
         }

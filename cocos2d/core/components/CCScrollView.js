@@ -1418,6 +1418,7 @@ var ScrollView = cc.Class({
     },
 
     _adjustContentOutOfBoundary: function () {
+        if (!this.content) return;//edit by yangzhu
         this._outOfBoundaryAmountDirty = true;
         if(this._isOutOfBoundary()) {
             var outOfBoundary = this._getHowMuchOutOfBoundary(cc.p(0, 0));
