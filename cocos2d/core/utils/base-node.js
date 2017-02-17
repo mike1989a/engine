@@ -61,7 +61,7 @@ var idGenerater = new IdGenerater('Node');
  * @extends Object
  * @private
  */
-var BaseNode = cc.Class(/** @lends cc.Node# */{
+var BaseNode = cc.Class({
     name: 'cc._BaseNode',
     extends: cc.Object,
     mixins: [cc.EventTarget],
@@ -106,7 +106,7 @@ var BaseNode = cc.Class(/** @lends cc.Node# */{
             },
             set: function (value) {
                 if (CC_DEV && value.indexOf('/') !== -1) {
-                    cc.error('Node name can not include \'/\'.');
+                    cc.errorID(1632);
                     return;
                 }
                 this._name = value;
@@ -131,7 +131,7 @@ var BaseNode = cc.Class(/** @lends cc.Node# */{
                     return;
                 }
                 if (CC_EDITOR && !cc.engine.isPlaying) {
-                    if (_Scene.DetectConflict.beforeAddChild(this)) {
+                    if (_Scene.DetectConflict.beforeAddChild(this, value)) {
                         return;
                     }
                 }
@@ -153,7 +153,7 @@ var BaseNode = cc.Class(/** @lends cc.Node# */{
                     if (!(oldParent._objFlags & Destroying)) {
                         var removeAt = oldParent._children.indexOf(this);
                         if (CC_DEV && removeAt < 0) {
-                            return cc.error('Internal error, should not remove unknown node from parent.');
+                            return cc.errorID(1633);
                         }
                         oldParent._children.splice(removeAt, 1);
                         oldParent.emit(CHILD_REMOVED, this);
@@ -266,7 +266,7 @@ var BaseNode = cc.Class(/** @lends cc.Node# */{
         rotation: {
             get: function () {
                 if (this._rotationX !== this._rotationY)
-                    cc.log(cc._LogInfos.Node.getRotation);
+                    cc.logID(1602);
                 return this._rotationX;
             },
             set: function (value) {
@@ -719,17 +719,13 @@ var BaseNode = cc.Class(/** @lends cc.Node# */{
          */
         color: {
             get: function () {
-                var color = this._color;
-                return new cc.Color(color.r, color.g, color.b, color.a);
+                return this._color.clone();
             },
             set: function (value) {
                 if ( !this._color.equals(value) ) {
-                    var color = this._color;
-                    color.r = value.r;
-                    color.g = value.g;
-                    color.b = value.b;
+                    this._color.fromColor(value);
                     if (CC_DEV && value.a !== 255) {
-                        cc.warn('Should not set alpha via "color", set "opacity" please.');
+                        cc.warnID(1626);
                     }
                     if (this._sizeProvider instanceof _ccsg.Node) {
                         this._sizeProvider.setColor(value);
@@ -791,19 +787,17 @@ var BaseNode = cc.Class(/** @lends cc.Node# */{
     },
 
     _onPreDestroy: function () {
+        cc.eventManager.removeListeners(this);
         if (CC_JSB) {
             this._sgNode.release();
             this._sgNode._entity = null;
             this._sgNode = null;
         }
-        cc.eventManager.removeListeners(this);
         for (var i = 0, len = this.__eventTargets.length; i < len; ++i) {
             var target = this.__eventTargets[i];
             target && target.targetOff(this);
         }
     },
-
-    _destruct: Misc.destructIgnoreId,
 
     // ABSTRACT INTERFACES
 
@@ -901,7 +895,7 @@ var BaseNode = cc.Class(/** @lends cc.Node# */{
      */
     getScale: function () {
         if (this._scaleX !== this._scaleY)
-            cc.log(cc._LogInfos.Node.getScale);
+            cc.logID(1603);
         return this._scaleX;
     },
 
@@ -1295,10 +1289,10 @@ var BaseNode = cc.Class(/** @lends cc.Node# */{
         }
 
         if (CC_DEV && !(child instanceof cc.Node)) {
-            return cc.error('addChild: The child to add must be instance of cc.Node, not %s.', cc.js.getClassName(child));
+            return cc.errorID(1634, cc.js.getClassName(child));
         }
-        cc.assert(child, cc._LogInfos.Node.addChild_3);
-        cc.assert(child._parent === null, "child already added. It can't be added again");
+        cc.assertID(child, 1606);
+        cc.assertID(child._parent === null, 1605);
 
         // invokes the parent setter
         child.parent = this;
@@ -1381,11 +1375,11 @@ var BaseNode = cc.Class(/** @lends cc.Node# */{
      */
     removeChildByTag: function (tag, cleanup) {
         if (tag === cc.macro.NODE_TAG_INVALID)
-            cc.log(cc._LogInfos.Node.removeChildByTag);
+            cc.logID(1609);
 
         var child = this.getChildByTag(tag);
         if (!child)
-            cc.log(cc._LogInfos.Node.removeChildByTag_2, tag);
+            cc.logID(1610, tag);
         else
             this.removeChild(child, cleanup);
     },

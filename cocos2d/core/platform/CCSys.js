@@ -139,6 +139,34 @@ sys.LANGUAGE_NORWEGIAN = "no";
 sys.LANGUAGE_POLISH = "pl";
 
 /**
+ * Turkish language code
+ * @property {String} LANGUAGE_TURKISH
+ * @readOnly
+ */
+sys.LANGUAGE_TURKISH = "tr";
+
+/**
+ * Ukrainian language code
+ * @property {String} LANGUAGE_UKRAINIAN
+ * @readOnly
+ */
+sys.LANGUAGE_UKRAINIAN = "uk";
+
+/**
+ * Romanian language code
+ * @property {String} LANGUAGE_ROMANIAN
+ * @readOnly
+ */
+sys.LANGUAGE_ROMANIAN = "ro";
+
+/**
+ * Bulgarian language code
+ * @property {String} LANGUAGE_BULGARIAN
+ * @readOnly
+ */
+sys.LANGUAGE_BULGARIAN = "bg";
+
+/**
  * Unknown language code
  * @property {String} LANGUAGE_UNKNOWN
  * @readOnly
@@ -522,8 +550,11 @@ else {
         iOS = true;
         osVersion = uaResult[2] || '';
         osMainVersion = parseInt(osVersion) || 0;
-    } else if (/(iPhone|iPad|iPod)/.exec(nav.platform)) {
+    } 
+    else if (/(iPhone|iPad|iPod)/.exec(nav.platform)) {
         iOS = true;
+        osVersion = '';
+        osMainVersion = 0;
     }
 
     var osName = sys.OS_UNKNOWN;
@@ -558,14 +589,16 @@ else {
     /* Determine the browser type */
     (function(){
         var typeReg1 = /mqqbrowser|sogou|qzone|liebao|micromessenger|ucbrowser|360 aphone|360browser|baiduboxapp|baidubrowser|maxthon|mxbrowser|trident|miuibrowser/i;
-        var typeReg2 = /qqbrowser|chrome|safari|firefox|opr|oupeng|opera/i;
+        var typeReg2 = /qqbrowser|qq|chrome|safari|firefox|opr|oupeng|opera/i;
         var browserTypes = typeReg1.exec(ua);
         if(!browserTypes) browserTypes = typeReg2.exec(ua);
-        var browserType = browserTypes ? browserTypes[0] : sys.BROWSER_TYPE_UNKNOWN;
+        var browserType = browserTypes ? browserTypes[0].toLowerCase() : sys.BROWSER_TYPE_UNKNOWN;
         if (browserType === 'micromessenger')
             browserType = sys.BROWSER_TYPE_WECHAT;
-        else if (browserType === "safari" && (ua.match(/android.*applewebkit/)))
+        else if (browserType === "safari" && isAndroid)
             browserType = sys.BROWSER_TYPE_ANDROID;
+        else if (browserType === "qq" && ua.match(/android.*applewebkit/i))
+            brwoserType = sys.BROWSER_TYPE_ANDROID;
         else if (browserType === "trident")
             browserType = sys.BROWSER_TYPE_IE;
         else if (browserType === "360 aphone")
@@ -580,12 +613,12 @@ else {
 
     /**
      * Indicate the running browser version
-     * @property {Number} browserVersion
+     * @property {String} browserVersion
      */
     sys.browserVersion = "";
     /* Determine the browser version number */
     (function(){
-        var versionReg1 = /(micromessenger|qq|mx|maxthon|baidu|sogou)(mobile)?(browser)?\/?([\d.]+)/i;
+        var versionReg1 = /(micromessenger|qq|maxthon|baidu|sogou)(mobile)?(browser)?\/?([\d.]+)/i;
         var versionReg2 = /(msie |rv:|firefox|chrome|ucbrowser|oupeng|opera|opr|safari|miui)(mobile)?(browser)?\/?([\d.]+)/i;
         var tmp = ua.match(versionReg1);
         if(!tmp) tmp = ua.match(versionReg2);
@@ -598,7 +631,7 @@ else {
 
     /**
      * Indicate the real pixel resolution of the whole game window
-     * @property {Number} windowPixelResolution
+     * @property {Size} windowPixelResolution
      */
     sys.windowPixelResolution = {
         width: ratio * w,
@@ -630,13 +663,12 @@ else {
 
     //Whether or not the Canvas BlendModes are supported.
     sys._supportCanvasNewBlendModes = (function(){
-        var data1, data2;
         var canvas = _tmpCanvas1;
         canvas.width = 1;
         canvas.height = 1;
         var context = canvas.getContext('2d');
         context.fillStyle = '#000';
-        context.fillRect(0,0,1,1);
+        context.fillRect(0, 0, 1, 1);
         context.globalCompositeOperation = 'multiply';
 
         var canvas2 = _tmpCanvas2;
@@ -644,30 +676,10 @@ else {
         canvas2.height = 1;
         var context2 = canvas2.getContext('2d');
         context2.fillStyle = '#fff';
-        context2.fillRect(0,0,1,1);
+        context2.fillRect(0, 0, 1, 1);
         context.drawImage(canvas2, 0, 0, 1, 1);
 
-        data1 = context.getImageData(0,0,1,1).data[0];
-
-        canvas = _tmpCanvas1;
-        canvas.width = 1;
-        canvas.height = 1;
-        var context = canvas.getContext('2d');
-        context.fillStyle = '#fff';
-        context.fillRect(0,0,1,1);
-        context.globalCompositeOperation = 'destination-atop';
-
-        canvas2 = _tmpCanvas2;
-        canvas2.width = 1;
-        canvas2.height = 1;
-        var context2 = canvas2.getContext('2d');
-        context2.fillStyle = '#000';
-        context2.fillRect(0,0,1,1);
-        context.drawImage(canvas2, 0, 0, 1, 1);
-
-        data2 = context.getImageData(0,0,1,1).data[0];
-
-        return (data1 === 0) && (data2 === 0);
+        return context.getImageData(0, 0, 1, 1).data[0] === 0;
     })();
 
     // Adjust mobile css settings
@@ -691,7 +703,7 @@ else {
         localStorage = null;
     } catch (e) {
         var warn = function () {
-            cc.warn("Warning: localStorage isn't enabled. Please confirm browser cookie or privacy option");
+            cc.warnID(5200);
         };
         sys.localStorage = {
             getItem : warn,
@@ -701,13 +713,14 @@ else {
         };
     }
 
+    var _supportWebp = _tmpCanvas1.toDataURL('image/webp').startsWith('data:image/webp');
     var _supportCanvas = !!_tmpCanvas1.getContext("2d");
     var _supportWebGL = false;
     if (win.WebGLRenderingContext) {
         var tmpCanvas = document.createElement("CANVAS");
         try{
-            var context = cc.create3DContext(tmpCanvas, {'stencil': true});
-            if (context && context.getShaderPrecisionFormat) {
+            var context = cc.create3DContext(tmpCanvas);
+            if (context) {
                 _supportWebGL = true;
             }
 
@@ -746,9 +759,7 @@ else {
                       _supportWebGL = false;
                     }
                     break;
-                case sys.BROWSER_TYPE_UNKNOWN:
                 case sys.BROWSER_TYPE_360:
-                case sys.BROWSER_TYPE_MIUI:
                 case sys.BROWSER_TYPE_UC:
                     _supportWebGL = false;
                 }
@@ -764,7 +775,8 @@ else {
      */
     var capabilities = sys.capabilities = {
         "canvas": _supportCanvas,
-        "opengl": _supportWebGL
+        "opengl": _supportWebGL,
+        "webp": _supportWebp,
     };
     if (docEle['ontouchstart'] !== undefined || doc['ontouchstart'] !== undefined || nav.msPointerEnabled)
         capabilities["touches"] = true;
@@ -840,7 +852,7 @@ else {
         }
     } catch(error) {
         __audioSupport.WEB_AUDIO = false;
-        cc.log("browser don't support web audio");
+        cc.logID(5201);
     }
 
     var formatSupport = [];

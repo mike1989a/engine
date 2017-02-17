@@ -42,11 +42,13 @@
  * @property {_ccsg.Node}  stencil         - he ccsg.Node to use as a stencil to do the clipping.
  */
 cc.ClippingNode = _ccsg.Node.extend(/** @lends cc.ClippingNode# */{
-    alphaThreshold: 0,
     inverted: false,
+    _alphaThreshold: 0,
 
     _stencil: null,
     _className: "ClippingNode",
+
+    _originStencilProgram: null,
 
     /**
      * Constructor function, override it to extend the construction behavior, remember to call "this._super()" in the extended "ctor" function.
@@ -56,22 +58,12 @@ cc.ClippingNode = _ccsg.Node.extend(/** @lends cc.ClippingNode# */{
         stencil = stencil || null;
         _ccsg.Node.prototype.ctor.call(this);
         this._stencil = stencil;
+        if (stencil) {
+            this._originStencilProgram = stencil.getShaderProgram();
+        }
         this.alphaThreshold = 1;
         this.inverted = false;
         this._renderCmd.initStencilBits();
-    },
-
-    /**
-     * Initialization of the node, please do not call this function by yourself, you should pass the parameters to constructor to initialize it.
-     * @function
-     * @param {_ccsg.Node} [stencil=null]
-     */
-    init: function (stencil) {
-        this._stencil = stencil;
-        this.alphaThreshold = 1;
-        this.inverted = false;
-        this._renderCmd.initStencilBits();
-        return true;
     },
 
     /**
@@ -85,7 +77,8 @@ cc.ClippingNode = _ccsg.Node.extend(/** @lends cc.ClippingNode# */{
      */
     onEnter: function () {
         _ccsg.Node.prototype.onEnter.call(this);
-        this._stencil.onEnter();
+        if (this._stencil)
+            this._stencil.performRecursive(_ccsg.Node.performType.onEnter);
     },
 
     /**
@@ -98,7 +91,8 @@ cc.ClippingNode = _ccsg.Node.extend(/** @lends cc.ClippingNode# */{
      */
     onEnterTransitionDidFinish: function () {
         _ccsg.Node.prototype.onEnterTransitionDidFinish.call(this);
-        this._stencil.onEnterTransitionDidFinish();
+        if (this._stencil)
+            this._stencil.performRecursive(_ccsg.Node.performType.onEnterTransitionDidFinish);
     },
 
     /**
@@ -110,7 +104,7 @@ cc.ClippingNode = _ccsg.Node.extend(/** @lends cc.ClippingNode# */{
      * @function
      */
     onExitTransitionDidStart: function () {
-        this._stencil.onExitTransitionDidStart();
+        this._stencil.performRecursive(_ccsg.Node.performType.onExitTransitionDidStart);
         _ccsg.Node.prototype.onExitTransitionDidStart.call(this);
     },
 
@@ -124,8 +118,26 @@ cc.ClippingNode = _ccsg.Node.extend(/** @lends cc.ClippingNode# */{
      * @function
      */
     onExit: function () {
-        this._stencil.onExit();
+        this._stencil.performRecursive(_ccsg.Node.performType.onExit);
         _ccsg.Node.prototype.onExit.call(this);
+    },
+
+    visit: function (parent) {
+        this._renderCmd.clippingVisit(parent && parent._renderCmd);
+    },
+
+    _visitChildren: function () {
+        if (this._reorderChildDirty) {
+            this.sortAllChildren();
+        }
+        var children = this._children, child;
+        for (var i = 0, len = children.length; i < len; i++) {
+            child = children[i];
+            if (child && child._visible) {
+                child.visit(this);
+            }
+        }
+        this._renderCmd._dirtyFlag = 0;
     },
 
     /**
@@ -138,7 +150,7 @@ cc.ClippingNode = _ccsg.Node.extend(/** @lends cc.ClippingNode# */{
      * @return {Number}
      */
     getAlphaThreshold: function () {
-        return this.alphaThreshold;
+        return this._alphaThreshold;
     },
 
     /**
@@ -146,7 +158,11 @@ cc.ClippingNode = _ccsg.Node.extend(/** @lends cc.ClippingNode# */{
      * @param {Number} alphaThreshold
      */
     setAlphaThreshold: function (alphaThreshold) {
-        this.alphaThreshold = alphaThreshold;
+        if (alphaThreshold === 1 && alphaThreshold !== this._alphaThreshold) {
+            // should reset program used by _stencil
+            this._renderCmd.resetProgramByStencil();
+        }
+        this._alphaThreshold = alphaThreshold;
     },
 
     /**
@@ -186,6 +202,10 @@ cc.ClippingNode = _ccsg.Node.extend(/** @lends cc.ClippingNode# */{
     setStencil: function (stencil) {
         if(this._stencil === stencil)
             return;
+
+        if (stencil)
+            this._originStencilProgram = stencil.getShaderProgram();
+
         this._renderCmd.setStencil(stencil);
     },
 
@@ -203,5 +223,4 @@ var _p = cc.ClippingNode.prototype;
 
 // Extended properties
 cc.defineGetterSetter(_p, "stencil", _p.getStencil, _p.setStencil);
-/** @expose */
-_p.stencil;
+cc.defineGetterSetter(_p, "alphaThreshold", _p.getAlphaThreshold, _p.setAlphaThreshold);

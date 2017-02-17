@@ -63,7 +63,6 @@ cc.game.once(cc.game.EVENT_RENDERER_INITED, function () {
     };
 
     cc.Director._getInstance().on(cc.Director.EVENT_PROJECTION_CHANGED, function(){
-        var director = cc.director;
         var stack = cc.director._scenesStack;
         for(var  i=0; i<stack.length; i++)
             recursiveChild(stack[i]);
@@ -104,20 +103,21 @@ cc.game.once(cc.game.EVENT_RENDERER_INITED, function () {
 
                 math.glMultMatrix(matrixPerspective);
 
-                math.glMatrixMode(math.KM_GL_MODELVIEW);
-                math.glLoadIdentity();
                 var eye = new math.Vec3(-ox + size.width / 2, -oy + size.height / 2, zeye);
-                var center = new math.Vec3( -ox + size.width / 2, -oy + size.height / 2, 0.0);
-                var up = new math.Vec3( 0.0, 1.0, 0.0);
+                var center = new math.Vec3(-ox + size.width / 2, -oy + size.height / 2, 0.0);
+                var up = new math.Vec3(0.0, 1.0, 0.0);
                 matrixLookup.lookAt(eye, center, up);
                 math.glMultMatrix(matrixLookup);
+
+                math.glMatrixMode(math.KM_GL_MODELVIEW);
+                math.glLoadIdentity();
                 break;
             case cc.Director.PROJECTION_CUSTOM:
                 if (_t._projectionDelegate)
                     _t._projectionDelegate.updateProjection();
                 break;
             default:
-                cc.log(cc._LogInfos.Director.setProjection);
+                cc.logID(1201);
                 break;
         }
         _t._projection = projection;
@@ -166,11 +166,6 @@ cc.game.once(cc.game.EVENT_RENDERER_INITED, function () {
         //}
         if (cc.eventManager)
             cc.eventManager.setEnabled(true);
-    };
-
-    _p._clear = function () {
-        var gl = cc._renderContext;
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     };
 
     _p.getVisibleSize = function () {

@@ -23,15 +23,9 @@
  THE SOFTWARE.
  ****************************************************************************/
 
-// 保存编辑器下用到的 prefab 相关信息
 cc._PrefabInfo = cc.Class({
     name: 'cc.PrefabInfo',
     properties: {
-        //// the serialized version
-        //VER: {
-        //    default: 1
-        //},
-
         // the most top node of this prefab in the scene
         root: null,
 
@@ -66,7 +60,7 @@ module.exports = {
                 node.name += _Scene.PrefabUtils.MISSING_PREFAB_SUFFIX;
             }
             else {
-                cc.error('Failed to load prefab asset for node "%s"', node.name);
+                cc.errorID(3701, node.name);
             }
             node._prefab = null;
             return;

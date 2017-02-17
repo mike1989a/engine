@@ -106,7 +106,7 @@ Path.prototype.reset = function () {
 
 // webgl render command
 function WebGLRenderCmd (renderable) {
-    _ccsg.Node.WebGLRenderCmd.call(this, renderable);
+    this._rootCtor(renderable);
     this._needDraw = true;
 
     var gl = cc._renderContext;
@@ -326,7 +326,7 @@ Js.mixin(_p, {
         }
 
         if (this._vertsOffset > 65536) {
-            cc.warn('Too many graphics vertices generated, only 65536 vertices support.');
+            cc.warnID(2401);
         }
 
         gl.enableVertexAttribArray(cc.macro.VERTEX_ATTRIB_POSITION);

@@ -36,17 +36,21 @@
         var colorDirty = locFlag & flags.colorDirty,
             opacityDirty = locFlag & flags.opacityDirty;
 
-        if (colorDirty) 
+        if (colorDirty) {
             this._updateDisplayColor();
-        if (opacityDirty)
+        }
+
+        if (opacityDirty) {
             this._updateDisplayOpacity();
+            this._notifyRegionStatus && this._notifyRegionStatus(_ccsg.Node.CanvasRenderCmd.RegionStatus.Dirty);
+        }
 
         if(locFlag & dirtyFlags.contentDirty) {
             this._notifyRegionStatus && this._notifyRegionStatus(_ccsg.Node.CanvasRenderCmd.RegionStatus.Dirty);
             this._dirtyFlag &= ~dirtyFlags.contentDirty;
         }
 
-        if (colorDirty || opacityDirty || (locFlag & flags.textDirty)) {
+        if (colorDirty || (locFlag & flags.textDirty)) {
             this._notifyRegionStatus && this._notifyRegionStatus(_ccsg.Node.CanvasRenderCmd.RegionStatus.Dirty);
             this._rebuildLabelSkin();
         }
@@ -162,7 +166,7 @@
                         startShrinkFontSize = actualFontSize;
                     }
                     if(actualFontSize <= 0) {
-                        cc.log("Label font size can't be shirnked less than 0!");
+                        cc.logID(4003);
                         break;
                     }
                     node._fontSize = actualFontSize;
@@ -448,7 +452,7 @@
 
 (function () {
     _ccsg.Label.CanvasRenderCmd = function (renderableObject) {
-        _ccsg.Node.CanvasRenderCmd.call(this, renderableObject);
+        this._rootCtor(renderableObject);
         this._needDraw = true;
         this._texture = new cc.Texture2D();
         this._labelCanvas = document.createElement('canvas');

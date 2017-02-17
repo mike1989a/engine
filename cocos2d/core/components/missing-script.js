@@ -104,18 +104,22 @@ var MissingScript = cc.Class({
             }
             if (id) {
                 cc.deserialize.reportMissingClass(id);
-                if (data.node && (CC_EDITOR && Editor.Utils.UuidUtils.isUuid(id))) {
-                    return MissingScript;
-                }
-                else {
-                    return MissingClass;
-                }
+                return MissingScript.getMissingWrapper(id, data);
             }
             return null;
+        },
+        getMissingWrapper: function (id, data) {
+            if (data.node && /^[0-9a-zA-Z+/]{23}$/.test(id)) {
+                // is component
+                return MissingScript;
+            }
+            else {
+                return MissingClass;
+            }
         }
     },
     onLoad: function () {
-        cc.warn('Script attached to "%s" is missing or invalid.', this.node.name);
+        cc.warnID(4600, this.node.name);
     }
 });
 
