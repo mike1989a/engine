@@ -215,6 +215,7 @@ JS.mixin(CCLoader.prototype, {
             var res = getResWithUrl(resource);
             if (!res.url && !res.uuid)
                 continue;
+            // res.url += "?123"
             var item = this.getItem(res.url);
             _sharedResources.push(item || res);
         }

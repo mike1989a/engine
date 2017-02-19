@@ -15,11 +15,14 @@ module.exports = {
     //    return urlOrigin !== location.origin;
     //},
     urlAppendTimestamp: function (url) {
-        if (cc.game.config['noCache'] && typeof url === 'string') {
-            if(_noCacheRex.test(url))
-                url += '&_t=' + (new Date() - 0);
-            else
-                url += '?_t=' + (new Date() - 0);
+        // if (cc.game.config['noCache'] && typeof url === 'string') {
+        //     if(_noCacheRex.test(url))
+        //         url += '&_t=' + (new Date() - 0);
+        //     else
+        //         url += '?_t=' + (new Date() - 0);
+        // }
+        if (cc.game.config['WWC-WEB-VERSION'] && typeof url === 'string') {
+            url += '?v=' + cc.game.config['WWC-WEB-VERSION'];
         }
         return url;
     }

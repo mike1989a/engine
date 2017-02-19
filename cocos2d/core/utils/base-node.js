@@ -184,8 +184,8 @@ var BaseNode = cc.Class({
             get: function () {
                 var id = this._id;
                 if ( !id ) {
-                    id = this._id = CC_EDITOR ? Editor.UuidUtils.uuid() : idGenerater.getNewId();
-                    // id = this._id = CC_EDITOR ? Editor.Utils.UuidUtils.uuid() : idGenerater.getNewId();
+                    // id = this._id = CC_EDITOR ? Editor.UuidUtils.uuid() : idGenerater.getNewId();
+                    id = this._id = CC_EDITOR ? Editor.Utils.UuidUtils.uuid() : idGenerater.getNewId();
                 }
                 return id;
             }

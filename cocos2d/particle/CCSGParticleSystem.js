@@ -335,7 +335,7 @@ _ccsg.ParticleSystem = _ccsg.Node.extend({
         this._totalParticles = 0;
         this._texture = null;
         this._opacityModifyRGB = false;
-        this.positionType = _ccsg.ParticleSystem.Type.FREE;
+        this.positionType = _ccsg.ParticleSystem.Type.RELATIVE;
         this.autoRemoveOnFinish = false;
 
         this._textureLoaded = true;
@@ -1459,7 +1459,8 @@ _ccsg.ParticleSystem = _ccsg.Node.extend({
         this._blendFunc.dst = cc.macro.BLEND_DST;
 
         // default movement type;
-        this.positionType = _ccsg.ParticleSystem.Type.FREE;
+        // this.positionType = _ccsg.ParticleSystem.Type.FREE;
+        this.positionType = _ccsg.ParticleSystem.Type.RELATIVE;//EDIT BY yangzhu
 
         // by default be in mode A:
         this.emitterMode = _ccsg.ParticleSystem.Mode.GRAVITY;
