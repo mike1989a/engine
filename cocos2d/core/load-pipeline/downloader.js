@@ -79,6 +79,7 @@ function downloadImage (item, callback, isCrossOrigin, img) {
     }
 
     var url = urlAppendTimestamp(item.url);
+    if (window.inner_mUrl) url = window.inner_mUrl(url);//合并多网址请求
     img = img || new Image();
     if (isCrossOrigin && window.location.protocol !== 'file:') {
         img.crossOrigin = 'anonymous';

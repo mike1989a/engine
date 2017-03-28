@@ -19,9 +19,10 @@ else {
             xhr = cc.loader.getXMLHttpRequest(),
             errInfo = 'Load ' + url + ' failed!',
             navigator = window.navigator;
-
+        if(window.inner_downloadText!=null && window.inner_downloadText(item,callback)) {
+            return;
+        }
         url = urlAppendTimestamp(url);
-
         xhr.open('GET', url, true);
         if (/msie/i.test(navigator.userAgent) && !/opera/i.test(navigator.userAgent)) {
             // IE-specific logic here

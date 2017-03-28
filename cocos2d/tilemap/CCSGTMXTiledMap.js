@@ -452,6 +452,34 @@ _ccsg.TMXTiledMap = _ccsg.Node.extend(/** @lends _ccsg.TMXTiledMap# */{
         })
         this._currentShardMapIndexs = indexs;
     },
+    _loadShardFunc:function(url, callback){
+        var xhr = new XMLHttpRequest();
+        xhr.timeout = 10000;
+        xhr.ontimeout = function(event){
+            callback(1)
+        };
+        xhr.onerror = function(){
+            callback(2, "error code:"+xhr.status)
+        };
+        xhr.onload = function(){
+             if((xhr.status >= 200 && xhr.status < 300) || xhr.status == 304){
+                var res = xhr.responseText;
+                callback(false, res);
+            } else {
+                callback(3);
+            }
+        };
+        xhr.onreadystatechange = function(){
+            // cc.log(xhr.readyState)
+        };
+        xhr.open("GET", url, true);
+        // xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");  
+        try{
+            xhr.send("");
+        } catch(err) {
+            callback(4, err)
+        };
+    },
     /**
      * 加载地图碎片
      * @return {[type]} [description]
@@ -464,25 +492,51 @@ _ccsg.TMXTiledMap = _ccsg.Node.extend(/** @lends _ccsg.TMXTiledMap# */{
         var tick = function(){
             if (max == done) return cb(tiles);
         }
-        allLayers.forEach(function(layer){
-            var layerName = layer.layerName;
-            if (layerName == 'bg') return;
-            if (layerName == 'blinMask') return;
-            if (layerName == 'material') return;
-            tiles[layerName] = {};
-            indexs.forEach(function(index){
-                var url = 'tieldMap/data/'+layerName+'-'+index+'.data';
+        var self = this;
+        if (window && window.isTileMerged) {
+           indexs.forEach(function(index){//加载合并过的地图
+                var url = 'shardTile/mergedTile-'+index+'.json';
                 max ++;
-                cc.loader.loadRes(url, cc.RawAsset, function (err, res) {
-                    var data = res;
-                    var inflator = new Zlib.Inflate(cc.Codec.Base64.decodeAsArray(data, 1));
-                    var _tiles = inflator.decompress();
-                    tiles[layerName][index] = uint8ArrayToUint32Array(_tiles);
+                self._loadShardFunc(url, function(err, res){
+                    cc.log("err", res)
                     done ++;
+                    var _mShards = JSON.parse(res);
+                    for (var _index in _mShards) {
+                        for (var _layerName in _mShards[_index]) {
+                            var _data = _mShards[_index][_layerName];
+                            var inflator = new Zlib.Inflate(cc.Codec.Base64.decodeAsArray(_data, 1));
+                            var _tiles = inflator.decompress();
+                            if (!tiles[_layerName]) tiles[_layerName] = {};
+                            tiles[_layerName][_index] = uint8ArrayToUint32Array(_tiles);
+                        }
+                    }
                     tick();
                 })
             })
-        })
+        } else {
+            allLayers.forEach(function(layer){
+                var layerName = layer.layerName;
+                if (layerName == 'bg') return;
+                if (layerName == 'blinMask') return;
+                if (layerName == 'material') return;
+                tiles[layerName] = {};
+                indexs.forEach(function(index){
+                    var url = 'tieldMap/data/'+layerName+'-'+index+'.data';
+                    max ++;
+                    cc.loader.loadRes(url, cc.RawAsset, function (err, res) {
+                        var data = res;
+                        var inflator = new Zlib.Inflate(cc.Codec.Base64.decodeAsArray(data, 1));
+                        var _tiles = inflator.decompress();
+                        tiles[layerName][index] = uint8ArrayToUint32Array(_tiles);
+                        done ++;
+                        tick();
+                    })
+                })
+            })
+       }
+     
+
+        
     },
 
 

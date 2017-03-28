@@ -72,8 +72,6 @@ var __getListenerID = function (event) {
         return cc._EventListenerKeyboard.LISTENER_ID;
     if (type.startsWith(eventType.MOUSE))
         return cc._EventListenerMouse.LISTENER_ID;
-    if (type === eventType.FOCUS)
-        return cc._EventListenerFocus.LISTENER_ID;
     if (type.startsWith(eventType.TOUCH)){
         // Touch listener is very special, it contains two kinds of listeners, EventListenerTouchOneByOne and EventListenerTouchAllAtOnce.
         // return UNKNOWN instead.
@@ -96,6 +94,7 @@ var __getListenerID = function (event) {
  * 在 Creator 的设计中，鼠标，触摸和自定义事件的监听和派发请参考 http://cocos.com/docs/creator/scripting/events.html。
  *
  * @class eventManager
+ * @static
  * @example {@link utils/api/engine/docs/cocos2d/core/event-manager/CCEventManager/addListener.js}
  */
 cc.eventManager = {
@@ -126,7 +125,7 @@ cc.eventManager = {
         }
         if (node.getChildren) {
             var _children = node.getChildren();
-            for(var i = 0, len = _children.length; i < len; i++)
+            for(var i = 0, len = _children ? _children.length : 0; i < len; i++)
                 this._setDirtyForNode(_children[i]);
         }
     },
@@ -136,7 +135,7 @@ cc.eventManager = {
      * !#zh 暂停传入的 node 相关的所有监听器的事件响应。
      * @method pauseTarget
      * @param {Node} node
-     * @param {Boolean} recursive
+     * @param {Boolean} [recursive=false]
      */
     pauseTarget: function (node, recursive) {
         if (!(node instanceof cc._BaseNode || node instanceof _ccsg.Node)) {
@@ -150,7 +149,7 @@ cc.eventManager = {
         }
         if (recursive === true) {
             var locChildren = node.getChildren();
-            for (i = 0, len = locChildren.length; i < len; i++)
+            for (i = 0, len = locChildren ? locChildren.length : 0; i < len; i++)
                 this.pauseTarget(locChildren[i], true);
         }
     },
@@ -160,7 +159,7 @@ cc.eventManager = {
      * !#zh 恢复传入的 node 相关的所有监听器的事件响应。
      * @method resumeTarget
      * @param {Node} node
-     * @param {Boolean} recursive
+     * @param {Boolean} [recursive=false]
      */
     resumeTarget: function (node, recursive) {
         if (!(node instanceof cc._BaseNode || node instanceof _ccsg.Node)) {
@@ -175,7 +174,7 @@ cc.eventManager = {
         this._setDirtyForNode(node);
         if (recursive === true && node.getChildren) {
             var locChildren = node.getChildren();
-            for (i = 0, len = locChildren.length; i< len; i++)
+            for (i = 0, len = locChildren ? locChildren.length : 0; i < len; i++)
                 this.resumeTarget(locChildren[i], true);
         }
     },
@@ -906,7 +905,7 @@ cc.eventManager = {
      *
      * @method removeListeners
      * @param {Number|Node} listenerType - listenerType or a node
-     * @param {Boolean} recursive
+     * @param {Boolean} [recursive=false]
      */
     removeListeners: function (listenerType, recursive) {
         var i, _t = this;
