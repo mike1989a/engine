@@ -488,6 +488,7 @@ _ccsg.TMXTiledMap = _ccsg.Node.extend(/** @lends _ccsg.TMXTiledMap# */{
 
     _tilesetForLayer:function (layerInfo, mapInfo) {
         var size = layerInfo._layerSize;
+        size = cc.size(1, 1);
         var tilesets = mapInfo.getTilesets();
         if (tilesets) {
             for (var i = tilesets.length - 1; i >= 0; i--) {
