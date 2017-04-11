@@ -375,7 +375,6 @@
         this._calculateTextBaseline();
 
         this._updateTexture();
-
     };
 
 
@@ -440,6 +439,8 @@
         }
 
         this._texture._textureLoaded = false;
+        // Hack. because we delete _htmlElementObj after usage in WEBGL mode
+        this._texture._htmlElementObj = this._labelCanvas;
         this._texture.handleLoadedTexture(true);
     };
 
