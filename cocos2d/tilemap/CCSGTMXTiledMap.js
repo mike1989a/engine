@@ -119,7 +119,8 @@ _ccsg.TMXTiledMap = _ccsg.Node.extend(/** @lends _ccsg.TMXTiledMap# */{
         _ccsg.Node.prototype.ctor.call(this);
         this._mapSize = cc.size(0, 0);
         this._tileSize = cc.size(0, 0);
-
+        /*当前在内存中的分布地图索引*/
+        this._currentShardMapIndexs = [-1,-1,-1,-1];    
         if(resourcePath !== undefined){
             this.initWithXML(tmxFile,resourcePath);
         }else if(tmxFile !== undefined){
@@ -409,6 +410,81 @@ _ccsg.TMXTiledMap = _ccsg.Node.extend(/** @lends _ccsg.TMXTiledMap# */{
         layerInfo.ownTiles = false;
         return layer;
     },
+
+    setTilesSource:function(params, cb){
+        var self = this;
+        var indexs = params.mapSourceIndexs;
+        var adds = [];//需要加载的索引
+        var dels = [];//需要移除的索引
+        var _oMap = {};//旧索引字典
+        var _nMap = {};//新索引字典
+        this._currentShardMapIndexs.forEach(function(index){
+            _oMap[index] = true;
+        })
+        indexs.forEach(function(index){
+            _nMap[index] = true;
+            if (!_oMap[index]) adds.push(index);
+        })
+        this._currentShardMapIndexs.forEach(function(index){
+            if (index == -1) return;
+            if (!_nMap[index]) dels.push(index);
+        })
+        if (adds.length == 0) {
+            cb();
+        } else {
+            this._doLoadShard(adds, function(tiles){
+                var allLayers = self.allLayers();
+                allLayers.forEach(function(layer){
+                    var layerName = layer.layerName;
+                    if (tiles[layerName]) {
+                        layer.setShardMapTiles(tiles[layerName]);
+                    }
+                })
+                cb()
+            });
+        }
+        /*移除分片*/
+        dels.forEach(function(index){
+            var allLayers = self.allLayers();
+            allLayers.forEach(function(layer){
+                layer.dropShardMapTiles(index);
+            })
+        })
+        this._currentShardMapIndexs = indexs;
+    },
+    /**
+     * 加载地图碎片
+     * @return {[type]} [description]
+     */
+    _doLoadShard:function(indexs, cb){
+        var allLayers = this.allLayers();
+        var tiles = {};
+        var max = 0;
+        var done = 0;
+        var tick = function(){
+            if (max == done) return cb(tiles);
+        }
+        allLayers.forEach(function(layer){
+            var layerName = layer.layerName;
+            if (layerName == 'bg') return;
+            if (layerName == 'blinMask') return;
+            if (layerName == 'material') return;
+            tiles[layerName] = {};
+            indexs.forEach(function(index){
+                var url = 'tieldMap/data/'+layerName+'-'+index+'.data';
+                max ++;
+                cc.loader.loadRes(url, cc.RawAsset, function (err, res) {
+                    var data = res;
+                    var inflator = new Zlib.Inflate(cc.Codec.Base64.decodeAsArray(data, 1));
+                    var _tiles = inflator.decompress();
+                    tiles[layerName][index] = uint8ArrayToUint32Array(_tiles);
+                    done ++;
+                    tick();
+                })
+            })
+        })
+    },
+
 
     _tilesetForLayer:function (layerInfo, mapInfo) {
         var size = layerInfo._layerSize;

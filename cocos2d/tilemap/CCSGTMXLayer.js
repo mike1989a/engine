@@ -108,7 +108,7 @@ _ccsg.TMXLayer = _ccsg.Node.extend(/** @lends _ccsg.TMXLayer# */{
         this._spriteTiles = {};
         this._staggerAxis = cc.TiledMap.StaggerAxis.STAGGERAXIS_Y;
         this._staggerIndex = cc.TiledMap.StaggerIndex.STAGGERINDEX_EVEN;
-
+        this.shardTiles = {};//分片地图数据
         if(mapInfo !== undefined)
             this.initWithTilesetInfo(tilesetInfo, layerInfo, mapInfo);
     },
@@ -441,51 +441,7 @@ _ccsg.TMXLayer = _ccsg.Node.extend(/** @lends _ccsg.TMXLayer# */{
      * @param {String} propertyName
      * @return {*}
      */
-// <<<<<<< HEAD
-//     initWithTilesetInfo:function (tilesetInfo, layerInfo, mapInfo) {
-//         // XXX: is 35% a good estimate ?
-//         var size = layerInfo._layerSize;
-//         var totalNumberOfTiles = parseInt(size.width * size.height);
-//         var capacity = totalNumberOfTiles * 0.35 + 1; // 35 percent is occupied ?
-//         capacity = 500
-//         var texture;
-//         if (tilesetInfo)
-//             texture = cc.textureCache.addImage(tilesetInfo.sourceImage);
 
-//         if (this.initWithTexture(texture, capacity)) {
-//             // layerInfo
-//             this.layerName = layerInfo.name;
-//             this._layerSize = size;
-//             this.tiles = {}
-//             this.baseTiles = layerInfo._tiles;
-
-//             this._minGID = layerInfo._minGID;
-//             this._maxGID = layerInfo._maxGID;
-//             this._opacity = layerInfo._opacity;
-//             this.properties = layerInfo.properties;
-//             this._contentScaleFactor = cc.director.getContentScaleFactor();
-
-//             // tilesetInfo
-//             this.tileset = tilesetInfo;
-
-//             // mapInfo
-//             this._mapTileSize = mapInfo.getTileSize();
-//             this.layerOrientation = mapInfo.orientation;
-
-//             // offset (after layer orientation is set);
-//             var offset = this._calculateLayerOffset(layerInfo.offset);
-//             this.setPosition(offset);
-
-//             this._atlasIndexArray = [];
-//             this.setContentSize(cc.size(this._layerSize.width * this._mapTileSize.width,
-//                 this._layerSize.height * this._mapTileSize.height));
-//             this._useAutomaticVertexZ = false;
-//             this._vertexZvalue = 0;
-//             return true;
-//         }
-//         return false;
-// =======
- 
 
     /**
      * <p>Dealloc the map that contains the tile position from memory. <br />
@@ -860,6 +816,54 @@ _ccsg.TMXLayer = _ccsg.Node.extend(/** @lends _ccsg.TMXLayer# */{
         this.baseTiles = baseTiles
     },
 
+    /**
+     * 设置分片地图数据
+     *     格式如下
+     *         {
+     *             10   =>array(),
+     *             11   =>array()
+     *         }
+     * @param {[type]} shardTiles [description]
+     */
+    setShardMapTiles:function(shardTiles){
+        for (var index in shardTiles) {
+             this.shardTiles[index] = shardTiles[index];
+        }
+    },
+
+    dropShardMapTiles:function(index){
+        delete this.shardTiles[index];
+    },
+
+    /**
+     * 从分片数据中取得地图配置的GID
+     * @param  {[type]} pos [description]
+     * @param  {[type]} y   [description]
+     * @return {[type]}     [description]
+     */
+    getGidFromShardTiles:function(pos, y){
+        var x = pos;
+        if (y === undefined) {
+            x = pos.x;
+            y = pos.y;
+        }
+        if (x >= this._layerSize.width || y >= this._layerSize.height || x < 0 || y < 0) {
+            throw new Error("_ccsg.TMXLayer.getTileGIDAt(): invalid position");
+        }
+        if (this.layerName == "bg") return 1;
+        if (this.layerName == 'material') return 0;
+        if (this.layerName == 'blinMask') return 0;
+
+        var _x = parseInt(x % 150);
+        var _y = parseInt(y % 150);
+        var _mx = parseInt(x / 150);
+        var _my = parseInt(y /150);
+        var mapIndex = _mx + _my * 10;
+        var _idx = _x + _y * 150;
+        if (!this.shardTiles[mapIndex]) return 0;
+        return this.shardTiles[mapIndex][_idx];
+    },
+
     showTilesBeyond:function(pos, distance){
         this._currentShowPoint = pos;//当前展示的格子
         this._currentShowDistance = distance;//当前展示的距离
@@ -877,7 +881,8 @@ _ccsg.TMXLayer = _ccsg.Node.extend(/** @lends _ccsg.TMXLayer# */{
             for (var _x = _minX; _x <= _maxX; _x++) {
                 var z = _x + layerSize.width * _y;
                 // var gid = this.getTileBaseGIDAt(cc.p(_x, _y))
-                var gid = this.baseTiles[z] || 0;
+                // var gid = this.baseTiles[z] || 0;
+                var gid =  this.getGidFromShardTiles(_x, _y);//从分片数据中读取
                 if (gid !== 0) {
                     if (this.tiles[z]) continue;
                     this.setTileGID(gid, cc.p(_x, _y));
