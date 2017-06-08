@@ -51,16 +51,33 @@ if (!cc.TextureCache.prototype._addImage) {
     cc.TextureCache.prototype._addImage = cc.TextureCache.prototype.addImage;
 }
 cc.TextureCache.prototype.addImage = function (url, cb, target) {
-    if (typeof cb === "function") {
-        return this.addImageAsync(url, cb, target);
+    // if (typeof cb === "function") {
+    //     return this.addImageAsync(url, cb, target);
+    // }
+    // else {
+    //     if (cb) {
+    //         return this._addImage(url, cb);
+    //     }
+    //     else {
+    //         return this._addImage(url);
+    //     }
+    // }
+    cc.log("yangzhu", "cc.TextureCache.prototype.addImage", url, cb, target)
+    var newurl = url;
+    if (window && window._PngFileAfter) {
+        newurl = url.replace(".png", window._PngFileAfter+".png")
+        cc.log("yangzhu", "cc.TextureCache.prototype.addImage", window._PngFileAfter, newurl)
     }
-    else {
-        if (cb) {
-            return this._addImage(url, cb);
+    if (typeof cb == "function") {
+        return this.addImageAsync(url, cb, target)
+    } else {
+        var tex = this._addImage(url);
+        cc.log("yangzhu", " cc.TextureCache.prototype.addImage return1", tex);
+        if (!tex && newurl != url) {
+            tex = this._addImage(newurl);
+            cc.log("yangzhu", " cc.TextureCache.prototype.addImage return2", tex);
         }
-        else {
-            return this._addImage(url);
-        }
+        return tex;
     }
 };
 

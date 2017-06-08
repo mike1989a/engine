@@ -91,15 +91,22 @@ function loadImage (item, callback) {
         });
     }
     else {
-        var addImageCallback = function (tex) {
-            if (tex instanceof cc.Texture2D) {
-                callback && callback(null, tex);
+        var newurl = url;
+        var isRetry = false;
+        if (window && window._PngFileAfter) {//edit by yangzhu 
+            newurl = url.replace(".png", window._PngFileAfter+".png")
+        }
+        var addImageCallback = function(tex) {
+            if (!tex && newurl != url && !isRetry) {
+                cc.log("yangzhu", "_addImageAsync2", newurl)
+                cc.textureCache._addImageAsync(newurl, addImageCallback);
+                return;
             }
-            else {
-                callback && callback(new Error('Load image failed: ' + url));
-            }
+            isRetry = true;
+            tex instanceof cc.Texture2D ? callback && callback(null, tex) : callback && callback(new Error("Load image failed: " + url));
             jsb.unregisterNativeRef(cc.textureCache, addImageCallback);
         };
+        cc.log("yangzhu", "_addImageAsync1", url)
         cc.textureCache._addImageAsync(url, addImageCallback);
     }
 }
